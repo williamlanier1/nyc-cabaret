@@ -74,7 +74,7 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="\${fileName}"`,
+      "Content-Disposition": `attachment; filename="${fileName}"`,
       "Cache-Control": "public, max-age=300",
     },
   });
