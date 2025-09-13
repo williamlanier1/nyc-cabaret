@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 // filepath: /Users/willlanier/nyc-cabaret/app/api/calendar/[slug]/route.ts
-import { buildIcs, type DbEvent } from "../../lib/db";
+import { buildIcs, type DbEvent } from "../../../../lib/db";
 
 type RouteParams = { slug: string };
 
