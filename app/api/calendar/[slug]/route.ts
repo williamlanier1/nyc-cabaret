@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-// filepath: /Users/willlanier/nyc-cabaret/app/api/calendar/[slug]/route.ts
-import { buildIcs, type DbEvent } from "../../../../lib/db";
+import { buildIcs, type DbEvent } from "@/lib/db";
 
 type RouteParams = { slug: string };
 
@@ -12,10 +11,10 @@ function supabaseServer() {
 }
 
 export async function GET(
-  _req: Request,
-  context: { params: RouteParams }
+_req: NextRequest,
+{ params }: { params: Promise<RouteParams>}
 ) {
-  const slug = context.params.slug;
+  const { slug } = await params;
   const supa = supabaseServer();
 
   const nowIso = new Date().toISOString();
