@@ -68,7 +68,7 @@ export async function GET(
   }
 
   const ics = buildIcs(rows, calendarName);
-  const fileName = `${slug}.ics`;
+  const fileName = slug === "all" ? "all.ics" : `${slug}.ics`;
 
   return new Response(ics, {
     status: 200,
