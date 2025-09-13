@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
+import type { EventContentArg } from "@fullcalendar/core";
+
 
 // ---------- types ----------
 type Venue = {
@@ -167,7 +169,7 @@ export default function Home() {
   }, [events, venueFilter, venueMap]);
 
   // Custom renderer for each list item
-  function renderEventContent(arg: any) {
+  function renderEventContent(arg: EventContentArg) {
     const { event } = arg;
     const { venueSlug, venueName } = event.extendedProps as {
       venueSlug: string;

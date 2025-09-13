@@ -1,124 +1,96 @@
-export const runtime = 'nodejs';
-
-import { NextRequest, NextResponse } from "next/server";
-import { createEvents, EventAttributes } from "ics";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { buildIcs, type DbEvent } from "@/lib/db";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Route params type (App Router)
+type RouteParams = { slug: string };
 
-function toParts(d: Date) {
-  return [
-    d.getUTCFullYear(),
-    d.getUTCMonth() + 1,
-    d.getUTCDate(),
-    d.getUTCHours(),
-    d.getUTCMinutes(),
-  ] as const;
+// Build a server-side Supabase client (reads public data)
+function supabaseServer() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient(url, key);
 }
 
 export async function GET(
-  _req: NextRequest,
-  { params }: { params: { slug: string } }
+  _req: Request,
+  context: { params: RouteParams }
 ) {
-  try {
-    const slug = params.slug || "all";
+  const slug = context.params.slug;
+  const supa = supabaseServer();
 
-    let query = supabase
+  // Calendar name (for ICS header)
+  let calendarName = "NYC Cabaret — All Venues";
+
+  // Load events (upcoming only)
+  const nowIso = new Date().toISOString();
+  let rows: DbEvent[] = [];
+
+  if (slug === "all") {
+    const { data, error } = await supa
       .from("events")
       .select(
-        `
-        uid_hash, title, artist, start_at, end_at, url, status,
-        venue:venues(name, slug)
-      `
+        "id,title,artist,start_at,end_at,url,status,tz,venue_id"
       )
-      .gte("start_at", new Date().toISOString())
+      .gte("start_at", nowIso)
       .order("start_at", { ascending: true });
 
-    if (slug !== "all") query = query.eq("venue.slug", slug);
-
-    const { data, error } = await query;
     if (error) {
-      console.error("Supabase error:", error);
-      return new NextResponse("DB error", { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to load events", details: String(error.message ?? error) },
+        { status: 500 }
+      );
     }
 
-    const rows = (data ?? []).map((e: any) => ({
-      ...e,
-      venue_name: e.venue?.name ?? "",
-      venue_slug: e.venue?.slug ?? "",
-    }));
+    rows = (data ?? []) as DbEvent[];
+  } else {
+    // Find venue by slug to get its id & name
+    const { data: venue, error: vErr } = await supa
+      .from("venues")
+      .select("id,name,slug")
+      .eq("slug", slug)
+      .single();
 
-    // Build ICS events defensively
-    const icsEvents: EventAttributes[] = [];
-    for (const e of rows) {
-      // Validate & sanitize
-      const start = new Date(e.start_at);
-      if (isNaN(start.getTime())) {
-        console.warn("Skipping event with bad start_at:", e);
-        continue;
-      }
-      const end = e.end_at ? new Date(e.end_at) : new Date(start.getTime() + 90 * 60 * 1000);
-      if (isNaN(end.getTime())) {
-        console.warn("Fixing bad end_at by defaulting:", e);
-      }
-
-      const title = (e.title ?? "").toString().trim();
-      if (!title) {
-        console.warn("Skipping event with empty title:", e);
-        continue;
-      }
-
-      const status =
-        (e.status ?? "confirmed").toString().toUpperCase() === "CANCELED"
-          ? "CANCELLED"
-          : "CONFIRMED";
-
-      icsEvents.push({
-        uid: `${e.uid_hash || `${e.venue_slug}-${start.toISOString()}`}@nyc-cabaret`,
-        title,
-        description: [e.artist, e.url].filter(Boolean).join("\n"),
-        location: e.venue_name || undefined,
-        startInputType: "utc",
-        start: toParts(start),
-        end: toParts(end),
-        status,
-        url: e.url || undefined,
-        productId: "nyc-cabaret-ics",
-      });
+    if (vErr || !venue) {
+      return NextResponse.json(
+        { error: `Unknown venue slug: ${slug}` },
+        { status: 404 }
+      );
     }
 
-    // If no events, return a valid empty calendar
-    if (icsEvents.length === 0) {
-      // Minimal VCALENDAR when empty (ics lib can error on truly empty input)
-      const empty =
-        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//nyc-cabaret//NONSGML v1.0//EN\r\nEND:VCALENDAR\r\n";
-      return new NextResponse(empty, {
-        headers: {
-          "Content-Type": "text/calendar; charset=utf-8",
-          "Content-Disposition": `inline; filename="${slug}.ics"`,
-          "Cache-Control": "s-maxage=300, stale-while-revalidate",
-        },
-      });
+    calendarName = `NYC Cabaret — ${venue.name}`;
+
+    const { data, error } = await supa
+      .from("events")
+      .select(
+        "id,title,artist,start_at,end_at,url,status,tz,venue_id"
+      )
+      .eq("venue_id", venue.id)
+      .gte("start_at", nowIso)
+      .order("start_at", { ascending: true });
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to load events", details: String(error.message ?? error) },
+        { status: 500 }
+      );
     }
 
-    const { error: icsError, value } = createEvents(icsEvents);
-    if (icsError) {
-      console.error("ICS generation error:", icsError);
-      return new NextResponse("ICS generation error", { status: 500 });
-    }
-
-    return new NextResponse(value!, {
-      headers: {
-        "Content-Type": "text/calendar; charset=utf-8",
-        "Content-Disposition": `inline; filename="${slug}.ics"`,
-        "Cache-Control": "s-maxage=900, stale-while-revalidate",
-      },
-    });
-  } catch (e) {
-    console.error("Route error:", e);
-    return new NextResponse("Internal error", { status: 500 });
+    rows = (data ?? []) as DbEvent[];
   }
+
+  // Build ICS
+  const ics = buildIcs(rows, calendarName);
+
+  // Name the file (e.g., "54-below.ics" or "all.ics")
+  const fileName = `${slug}.ics`;
+
+  return new Response(ics, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${fileName}"`,
+      "Cache-Control": "public, max-age=300", // 5 min
+    },
+  });
 }
