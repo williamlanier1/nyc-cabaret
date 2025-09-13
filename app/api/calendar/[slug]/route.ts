@@ -1,6 +1,9 @@
-import { buildIcs, type DbEvent } from "@/lib/db";
-import { NextRequest, NextResponse } from "next/server";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { buildIcs, type DbEvent } from "@/lib/db"; // using tsconfig alias
 
 type RouteParams = { slug: string };
 
@@ -10,12 +13,11 @@ function supabaseServer() {
   return createClient(url, key);
 }
 
-export async function GET(
-_req: NextRequest,
-{ params }: { params: Promise<RouteParams>}
-) {
-  const { slug } = await params;
+export async function GET(req: Request, context: { params: RouteParams }) {
   const supa = supabaseServer();
+  const slug = context.params.slug;
+  const { searchParams } = new URL(req.url);
+  const format = (searchParams.get("format") || "ics").toLowerCase();
 
   const nowIso = new Date().toISOString();
   let calendarName = "NYC Cabaret — All Venues";
@@ -67,9 +69,14 @@ _req: NextRequest,
     rows = (data ?? []) as DbEvent[];
   }
 
-  const ics = buildIcs(rows, calendarName);
-  const fileName = slug === "all" ? "all.ics" : `${slug}.ics`;
+  // 👇 Debug helper: return JSON if format=json
+  if (format === "json") {
+    return NextResponse.json({ count: rows.length, rows }, { status: 200 });
+  }
 
+  // Default: return ICS
+  const ics = buildIcs(rows, calendarName);
+  const fileName = `${slug}.ics`;
   return new Response(ics, {
     status: 200,
     headers: {
