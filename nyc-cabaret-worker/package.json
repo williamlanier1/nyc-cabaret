@@ -1,0 +1,14 @@
+{
+  "name": "nyc-cabaret-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "cheerio": "^1.0.0",
+    "luxon": "^3.5.0",
+    "node-ical": "^0.15.1"
+  }
+}
