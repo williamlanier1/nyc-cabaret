@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 
 :root {
   --background: #ffffff;
@@ -23,4 +27,76 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+/* Make browsers honor both color schemes */
+:root { color-scheme: light dark; }
+
+/* ---------- FullCalendar: light/dark list view fixes ---------- */
+.fc-theme-standard .fc-list-day-cushion {
+  background: #f5f5f5;           /* light mode day header */
+  color: #111827;
+  font-weight: 600;
+}
+.fc-theme-standard .fc-list-event td {
+  background: #ffffff;           /* light mode event rows */
+  color: #111827;
+}
+
+/* Borders & hover in light mode */
+.fc-theme-standard td, 
+.fc-theme-standard th {
+  border-color: #e5e7eb;
+}
+.fc .fc-list-event:hover td {
+  background: #f9fafb !important;
+}
+
+/* ---------- Dark mode overrides ---------- */
+.dark .fc-theme-standard {
+  /* core tokens */
+  --fc-page-bg-color: #0a0a0a;
+  --fc-border-color: #262626;
+  --fc-neutral-text-color: #e5e7eb;
+  --fc-button-text-color: #e5e7eb;
+  --fc-button-bg-color: #1f2937;        /* slate-800 */
+  --fc-button-border-color: #374151;    /* slate-700 */
+  --fc-button-hover-bg-color: #374151;  /* slate-700 */
+  --fc-button-active-bg-color: #4b5563; /* slate-600 */
+  --fc-list-event-hover-bg-color: #111827;
+}
+
+.dark .fc .fc-toolbar-title {
+  color: #ffffff;
+}
+
+.dark .fc .fc-list-day-cushion {
+  background: #18181b;       /* dark header strip */
+  color: #f4f4f5;
+}
+
+.dark .fc-theme-standard .fc-list-event td {
+  background: #111827;       /* dark event rows */
+  color: #e5e7eb;
+  border-color: #262626;
+}
+
+.dark .fc .fc-list-event-time,
+.dark .fc .fc-list-event-title,
+.dark .fc .fc-list-day-text,
+.dark .fc .fc-list-day-side-text {
+  color: #e5e7eb;
+}
+
+.dark .fc a, 
+.dark .fc .fc-list-event-title a {
+  color: #c7d2fe;            /* soft link color on dark */
+}
+
+.dark .fc .fc-list-event-dot {
+  border-color: #93c5fd;     /* event dot */
+  background: #93c5fd;
+}
+
+.dark .fc .fc-list-event:hover td {
+  background: #0f172a !important;
 }
