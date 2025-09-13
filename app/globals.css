@@ -100,3 +100,34 @@ body {
 .dark .fc .fc-list-event:hover td {
   background: #0f172a !important;
 }
+/* -- Stronger dark mode rules for FullCalendar list day header -- */
+
+.dark .fc-theme-standard .fc-list-day-cushion,
+.dark .fc .fc-list-day th,
+.dark .fc .fc-list-day-cushion {
+  background: #18181b !important;   /* dark header strip */
+  color: #f4f4f5 !important;        /* readable text */
+  border-color: #262626 !important; /* subtle divider */
+}
+
+/* Make the small right-side weekday (e.g., 'Sunday') readable too */
+.dark .fc .fc-list-day-text,
+.dark .fc .fc-list-day-side-text {
+  color: #e5e7eb !important;
+}
+
+/* Ensure the row under the header doesn't render white */
+.dark .fc-theme-standard .fc-list-event td {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+  border-color: #262626 !important;
+}
+
+/* Light mode fallback (optional, for clarity) */
+.fc-theme-standard .fc-list-day-cushion,
+.fc .fc-list-day th,
+.fc .fc-list-day-cushion {
+  background: #f5f5f5;
+  color: #111827;
+  border-color: #e5e7eb;
+}
