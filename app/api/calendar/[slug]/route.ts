@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { buildIcs, type DbEvent } from "@/lib/db";
+import { buildIcs, type DbEvent } from "../../../lib/db";
 
 type RouteParams = { slug: string };
 
