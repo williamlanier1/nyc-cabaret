@@ -5,8 +5,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { buildIcs, type DbEvent } from "@/lib/db"; // using tsconfig alias
 
-type RouteParams = { slug: string };
-
 function supabaseServer() {
   const url =
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
