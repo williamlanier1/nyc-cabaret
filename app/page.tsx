@@ -74,21 +74,12 @@ export default function Home() {
             {dateStr} • {timeStr}
           </div>
 
-          {url ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 block text-lg font-semibold leading-snug text-gray-900 hover:underline dark:text-white"
-              onClick={(e) => e.stopPropagation()} // don’t let FC hijack it
-            >
-              {title}
-            </a>
-          ) : (
-            <div className="mt-1 text-lg font-semibold leading-snug text-gray-900 dark:text-white">
-              {title}
-            </div>
-          )}
+          <div
+            className="mt-1 text-lg font-semibold leading-snug text-gray-900 hover:underline dark:text-white"
+            title={url || undefined}
+          >
+            {title}
+          </div>
 
           {props.artist ? (
             <div className="mt-1 text-gray-700 dark:text-neutral-200">
@@ -163,8 +154,8 @@ export default function Home() {
             }}
             eventContent={eventContent}
             eventDidMount={(arg) => {
-              // As a fallback, force anchors inside the row to be target=_blank
-              const a = arg.el.querySelector("a") as HTMLAnchorElement | null;
+              // If FullCalendar created an <a> wrapper (when event.url exists), force _blank
+              const a = arg.el.closest("a") as HTMLAnchorElement | null;
               if (a && a.href) {
                 a.target = "_blank";
                 a.rel = "noopener noreferrer";
