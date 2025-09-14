@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "./supabase.mjs";
 import { fetch54BelowMonths } from "./connectors/54below.mjs";
+import { fetchDontTellMamaMonths } from "./connectors/donttellmama.mjs";
 
 /* ----------------------- helpers ----------------------- */
 
@@ -125,6 +126,15 @@ async function run() {
   console.log(`Imported 54 Below: ${clean54.length} events`);
 
   // Ingestion for additional venues can be added here as needed.
+  try {
+    const eventsDTM = await fetchDontTellMamaMonths("https://shows.donttellmamanyc.com/", 6);
+    const cleanDTM = uniqByUid(dropUnwanted(eventsDTM));
+    // Ensure this matches your venues.slug in Supabase
+    await upsert("dont-tell-mama", cleanDTM);
+    console.log(`Imported Don't Tell Mama: ${cleanDTM.length} events`);
+  } catch (err) {
+    console.warn("Don't Tell Mama import failed:", err?.message || err);
+  }
 }
 
 run()
