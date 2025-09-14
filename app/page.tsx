@@ -21,6 +21,14 @@ type EventRow = {
   venue?: { slug?: string; name?: string };
 };
 
+type CalendarExtendedProps = {
+  url?: string;
+  artist?: string | null;
+  venue_slug?: string;
+  venue_name?: string;
+  status?: string | null;
+};
+
 function normalizeUrl(input?: string | null): string | undefined {
   const u = (input ?? "").trim();
   if (!u) return undefined;
@@ -52,13 +60,13 @@ export default function Home() {
 
   // Custom renderer: guarantees we show a visible, clickable <a>
   const eventContent = (arg: EventContentArg) => {
-    const props = arg.event.extendedProps as Record<string, any>;
+    const props = arg.event.extendedProps as CalendarExtendedProps;
     const venue =
-      (props.venue_name as string | undefined) ||
-      (props.venue as string | undefined) ||
-      (props.venue_slug as string | undefined) ||
+      props.venue_name ||
+      (props as unknown as { venue?: string }).venue ||
+      props.venue_slug ||
       "unknown";
-    const status = props.status as string | null;
+    const status = props.status ?? null;
     const url = (arg.event.url || props.url) as string | undefined;
 
     const title = arg.event.title || "";
@@ -151,9 +159,8 @@ export default function Home() {
             })}
             // Ensure clicking anywhere on the row (not just the link) opens a tab
             eventClick={(info) => {
-              const url =
-                info.event.url ||
-                (info.event.extendedProps as Record<string, any>)?.url;
+              const ep = info.event.extendedProps as CalendarExtendedProps;
+              const url = info.event.url || ep?.url;
               if (typeof url === "string" && url) {
                 info.jsEvent.preventDefault();
                 window.open(url, "_blank", "noopener,noreferrer");

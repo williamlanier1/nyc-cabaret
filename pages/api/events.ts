@@ -21,7 +21,8 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
     }
 
     return res.status(200).json({ count: data?.length ?? 0, rows: data ?? [] });
-  } catch (e: any) {
-    return res.status(500).json({ error: String(e?.message ?? e) });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ error: msg });
   }
 }
