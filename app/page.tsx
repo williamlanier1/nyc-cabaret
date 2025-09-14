@@ -24,7 +24,10 @@ type EventRow = {
 function normalizeUrl(input?: string | null): string | undefined {
   const u = (input ?? "").trim();
   if (!u) return undefined;
-  return u;
+  // If URL lacks a scheme, default to https
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith("//")) return `https:${u}`; // protocol-relative
+  return `https://${u}`;
 }
 
 export default function Home() {
