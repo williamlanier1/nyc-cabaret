@@ -15,6 +15,7 @@ function dropUnwanted(events) {
       /livestream/i.test(t) ||
       /virtual/i.test(t) ||
       /on\s*demand/i.test(t) ||
+      /cancel+ed?/i.test(t) ||             // Cancel, Canceled, Cancelled
       /private\s*event/i.test(t) ||
       /\bclosed\b/i.test(t) ||
       /no\s*shows?/i.test(t) ||
@@ -22,7 +23,12 @@ function dropUnwanted(events) {
       /\bdark\b/i.test(t)
     );
   };
-  return events.filter((e) => !isUnwanted(e.title) && !isUnwanted(e.url) && !isUnwanted(e.source_ref));
+  return events.filter((e) =>
+    !isUnwanted(e.title) &&
+    !isUnwanted(e.url) &&
+    !isUnwanted(e.source_ref) &&
+    !(e.status && /cancel/i.test(String(e.status)))
+  );
 }
 
 // dedupe by uid_hash to avoid "ON CONFLICT ... affect row a second time"

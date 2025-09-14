@@ -75,6 +75,7 @@ const isUnwantedText = (s) => {
     /livestream/i.test(txt) ||
     /virtual/i.test(txt) ||
     /on\s*demand/i.test(txt) ||
+    /cancel+ed?/i.test(txt) ||
     /private\s*event/i.test(txt) ||
     /\bclosed\b/i.test(txt) ||
     /no\s*shows?/i.test(txt) ||

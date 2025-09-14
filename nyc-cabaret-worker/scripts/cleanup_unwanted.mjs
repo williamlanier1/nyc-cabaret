@@ -5,6 +5,9 @@ const PATTERNS = [
   "%livestream%",
   "%virtual%",
   "%on demand%",
+  "%cancel%",
+  "%canceled%",
+  "%cancelled%",
   "%private event%",
   "%closed%",
   "%no show%",
@@ -33,4 +36,3 @@ run().catch((e) => {
   console.error("Cleanup error:", e?.message || e);
   process.exit(1);
 });
-
