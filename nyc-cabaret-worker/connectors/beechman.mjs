@@ -6,11 +6,8 @@ const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
 
 function monthYearFromText(text) {
   const t = norm(text);
-  const m = t.match(/
-    (January|February|March|April|May|June|July|August|September|October|November|December)
-    [^\d]{0,10}
-    (\d{4})
-  /ix);
+  const re = /(January|February|March|April|May|June|July|August|September|October|November|December)\D{0,10}(\d{4})/i;
+  const m = t.match(re);
   if (!m) return null;
   const month = m[1];
   const year = parseInt(m[2], 10);
