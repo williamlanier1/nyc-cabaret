@@ -6,7 +6,8 @@
     "start": "node index.mjs",
     "backfill:54below": "node scripts/backfill_54below_title_artist.mjs",
     "cleanup:unwanted": "node scripts/cleanup_unwanted.mjs",
-    "backfill:titlecase": "node scripts/backfill_titlecase.mjs"
+    "backfill:titlecase": "node scripts/backfill_titlecase.mjs",
+    "backfill:dtm-quotes": "node scripts/backfill_dtm_quotes_split.mjs"
   },
   "engines": {
     "node": ">=18"

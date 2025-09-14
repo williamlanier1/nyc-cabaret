@@ -43,6 +43,8 @@ function splitTitleAndArtist(raw) {
   if (!t0) return { title: t0, artist: null };
   // strip trailing date suffixes like " 9/2/25" from title portion
   const stripDateSuffix = (s) => s.replace(/\s+\d{1,2}\/\d{1,2}\/\d{2,4}$/,'').trim();
+
+  // 1) Preferred: Artist: Show
   const colonIdx = t0.indexOf(":");
   if (colonIdx > 0) {
     const left = t0.slice(0, colonIdx).trim();
@@ -53,6 +55,25 @@ function splitTitleAndArtist(raw) {
       return { title: right, artist: left };
     }
   }
+
+  // 2) Artist "Show Title" — capture inner quotes as title, prefix as artist (if reasonable)
+  const mq = t0.match(/^(.+?)\s*[“\"]([^\"]+)[”\"]/);
+  if (mq) {
+    const pre = norm(mq[1] || "");
+    const inner = norm(mq[2] || "");
+    if (inner) {
+      const artist = pre && pre.length >= 3 ? pre : null;
+      return { title: stripDateSuffix(inner.replace(/[“”\"]/g, "").trim()), artist };
+    }
+  }
+
+  // 3) Title only in quotes: "Just Me"
+  const mq2 = t0.match(/[“\"]([^\"]+)[”\"]/);
+  if (mq2) {
+    const inner = norm(mq2[1] || "");
+    if (inner) return { title: stripDateSuffix(inner.replace(/[“”\"]/g, "").trim()), artist: null };
+  }
+
   return { title: stripDateSuffix(t0), artist: extractArtistFromTitle(t0) };
 }
 

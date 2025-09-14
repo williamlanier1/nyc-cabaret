@@ -35,6 +35,13 @@ function splitTitleAndArtist(title) {
       return { title: right, artist: left };
     }
   }
+  // Handle Artist "Show Title"
+  const mq = t.match(/^(.+?)\s*[“\"]([^\"]+)[”\"]/);
+  if (mq) {
+    const pre = (mq[1] || "").trim();
+    const inner = (mq[2] || "").trim();
+    if (inner) return { title: inner.replace(/[“”\"]/g, "").trim(), artist: pre || null };
+  }
   // Fallback: try other heuristics (e.g., "Artist at 54 Below") but keep full title
   return { title: t, artist: extractArtistFromTitle(t) };
 }

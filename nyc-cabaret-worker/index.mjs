@@ -2,6 +2,7 @@ import { supabaseAdmin } from "./supabase.mjs";
 import { fetch54BelowMonths } from "./connectors/54below.mjs";
 import { fetchDontTellMamaMonths } from "./connectors/donttellmama.mjs";
 import { fetchJoesPubFromDoNYC } from "./connectors/joespub.mjs";
+import { fetchIcsForVenue } from "./connectors/ics.mjs";
 
 /* ----------------------- helpers ----------------------- */
 
@@ -145,6 +146,17 @@ async function run() {
     console.log(`Imported Joe's Pub: ${cleanJP.length} events`);
   } catch (err) {
     console.warn("Joe's Pub import failed:", err?.message || err);
+  }
+
+  // Chelsea Table + Stage via provided ICS link
+  try {
+    const icsUrl = "https://data.accentapi.com/widget_export_calendar/25441071?v=1757886133543";
+    const eventsCTS = await fetchIcsForVenue("chelsea-table-stage", icsUrl);
+    const cleanCTS = uniqByUid(dropUnwanted(eventsCTS));
+    await upsert("chelsea-table-stage", cleanCTS);
+    console.log(`Imported Chelsea Table + Stage: ${cleanCTS.length} events`);
+  } catch (err) {
+    console.warn("Chelsea Table + Stage import failed:", err?.message || err);
   }
 }
 
