@@ -5,6 +5,7 @@ import FullCalendar from "@fullcalendar/react";
 import listPlugin from "@fullcalendar/list";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import type { EventContentArg } from "@fullcalendar/core";
 
 type EventRow = {
   id: string;
@@ -23,7 +24,6 @@ type EventRow = {
 function normalizeUrl(input?: string | null): string | undefined {
   const u = (input ?? "").trim();
   if (!u) return undefined;
-  // Accept absolute URLs; if someone ever stored a bare domain, you could add a scheme here.
   return u;
 }
 
@@ -35,9 +35,7 @@ export default function Home() {
     let mounted = true;
     (async () => {
       try {
-        const res = await fetch("/api/calendar/all?format=json", {
-          cache: "no-store",
-        });
+        const res = await fetch("/api/calendar/all?format=json", { cache: "no-store" });
         const data = await res.json();
         if (mounted && data?.rows) setEvents(data.rows);
       } catch (e) {
@@ -46,10 +44,76 @@ export default function Home() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
+
+  // Custom renderer: guarantees we show a visible, clickable <a>
+  const eventContent = (arg: EventContentArg) => {
+    const props = arg.event.extendedProps as Record<string, any>;
+    const venue = props.venue ?? "unknown";
+    const status = props.status as string | null;
+    const url = (arg.event.url || props.url) as string | undefined;
+
+    const starts = arg.event.start!;
+    const dateStr = new Intl.DateTimeFormat("en-US", {
+      weekday: "short", month: "short", day: "numeric",
+    }).format(starts);
+    const timeStr = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric", minute: "2-digit",
+    }).format(starts);
+
+    const title = arg.event.title || "";
+
+    return (
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm text-gray-600 dark:text-neutral-300">
+            {dateStr} • {timeStr}
+          </div>
+
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 block text-lg font-semibold leading-snug text-gray-900 hover:underline dark:text-white"
+              onClick={(e) => e.stopPropagation()} // don’t let FC hijack it
+            >
+              {title}
+            </a>
+          ) : (
+            <div className="mt-1 text-lg font-semibold leading-snug text-gray-900 dark:text-white">
+              {title}
+            </div>
+          )}
+
+          {props.artist ? (
+            <div className="mt-1 text-gray-700 dark:text-neutral-200">
+              {props.artist}
+            </div>
+          ) : null}
+
+          {status && status.toLowerCase() !== "confirmed" ? (
+            <div className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+              {status}
+            </div>
+          ) : null}
+        </div>
+
+        <span
+          className={[
+            "shrink-0 rounded-full px-3 py-1 text-xs font-medium",
+            venue === "54-below"
+              ? "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:text-fuchsia-200"
+              : "bg-gray-100 text-gray-800 dark:bg-neutral-800 dark:text-neutral-200",
+          ].join(" ")}
+          title={venue}
+        >
+          {venue}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white">
@@ -57,7 +121,7 @@ export default function Home() {
         <header className="mb-6">
           <h1 className="text-2xl font-bold">NYC Cabaret — Upcoming</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-neutral-300">
-            Unified list across venues. Click any item to open details/tickets.
+            Unified list across venues. Click a title to open tickets/details.
           </p>
         </header>
 
@@ -67,11 +131,7 @@ export default function Home() {
           <FullCalendar
             plugins={[listPlugin, dayGridPlugin, interactionPlugin]}
             initialView="listMonth"
-            headerToolbar={{
-              left: "prev,next today",
-              center: "title",
-              right: "listMonth",
-            }}
+            headerToolbar={{ left: "prev,next today", center: "title", right: "listMonth" }}
             events={events.map((e) => {
               const link = normalizeUrl(e.url);
               return {
@@ -79,33 +139,35 @@ export default function Home() {
                 title: e.artist ? `${e.title} — ${e.artist}` : e.title,
                 start: e.start_at ?? e.start_time ?? e.start,
                 end: e.end_at ?? null,
-                url: link, // FC will render an <a> when this is defined & non-empty
+                url: link, // FullCalendar native url prop
                 extendedProps: {
-                  url: link, // fallback for eventClick
+                  url: link,
+                  artist: e.artist,
                   venue: e.venue_slug ?? e.venue?.slug ?? "unknown",
                   status: e.status ?? null,
                 },
               };
             })}
-            // Open in a new tab on click
+            // Ensure clicking anywhere on the row (not just the link) opens a tab
             eventClick={(info) => {
               const url =
                 info.event.url ||
-                (info.event.extendedProps as Record<string, unknown>)?.url;
+                (info.event.extendedProps as Record<string, any>)?.url;
               if (typeof url === "string" && url) {
-                // Don’t let FC try to navigate the same page
                 info.jsEvent.preventDefault();
                 window.open(url, "_blank", "noopener,noreferrer");
               }
             }}
-            // Force the anchor that FC renders to open in a new tab (helps Safari)
+            eventContent={eventContent}
             eventDidMount={(arg) => {
+              // As a fallback, force anchors inside the row to be target=_blank
               const a = arg.el.querySelector("a") as HTMLAnchorElement | null;
               if (a && a.href) {
                 a.target = "_blank";
                 a.rel = "noopener noreferrer";
               }
             }}
+            // list styling polish (rows are not editable/draggy)
             editable={false}
             selectable={false}
             navLinks={false}
