@@ -70,11 +70,24 @@ function eventRow(venueSlug, rawTitle, startISO, url, sourceUrl) {
   };
 }
 
-export async function fetchJoesPubFromDoNYC(venueUrl = "https://donyc.com/venues/joes-pub") {
-  const res = await fetch(venueUrl, { headers: { "user-agent": "nyc-cabaret-bot/1.0 (+contact)" }});
-  const html = await res.text();
-  const $ = cheerio.load(html);
+export async function fetchJoesPubFromDoNYC(primaryUrl = "https://donyc.com/venues/joes-pub") {
+  const candidates = [primaryUrl, "https://donyc.com/venues/joe-s-pub"]; 
   const out = [];
+
+  for (const venueUrl of candidates) {
+    try {
+      const res = await fetch(venueUrl, { headers: {
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "accept": "text/html,application/xhtml+xml",
+        "accept-language": "en-US,en;q=0.9",
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-dest": "document"
+      }});
+      const html = await res.text();
+      const $ = cheerio.load(html);
+      const cnt = $(".ds-listing[itemtype='http://schema.org/Event']").length;
+      console.log(`[Joe's Pub DoNYC] found ${cnt} listings at ${venueUrl}`);
 
   $(".ds-listing[itemtype='http://schema.org/Event']").each((_, el) => {
     const $el = $(el);
@@ -90,8 +103,8 @@ export async function fetchJoesPubFromDoNYC(venueUrl = "https://donyc.com/venues
     }
     if (isUnwantedText(href)) href = venueUrl;
 
-    const dt = $el.find("meta[itemprop='startDate']").attr("content") ||
-      $el.find("meta[itemprop='startDate']").attr("datetime") || "";
+    const meta = $el.find("meta[itemprop='startDate']");
+    const dt = meta.attr("content") || meta.attr("datetime") || "";
     if (!dt) return;
     const d = new Date(dt);
     if (isNaN(d.getTime())) return;
@@ -99,7 +112,8 @@ export async function fetchJoesPubFromDoNYC(venueUrl = "https://donyc.com/venues
 
     out.push(eventRow("joes-pub", title, startISO, href, venueUrl));
   });
-
+      if (out.length > 0) break;
+    } catch {}
+  }
   return out;
 }
-

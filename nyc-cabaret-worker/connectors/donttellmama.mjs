@@ -57,7 +57,9 @@ function splitTitleAndArtist(raw) {
 }
 
 function eventRow(venueSlug, rawTitle, startISO, url, sourceUrl) {
-  let { title, artist } = splitTitleAndArtist(rawTitle);
+  // Normalize quotes first, then split
+  let cleaned = smartTitleCase(rawTitle); // strips quotes + handles casing
+  let { title, artist } = splitTitleAndArtist(cleaned);
   title = smartTitleCase(title);
   if (artist) artist = smartTitleCase(artist);
   return {
