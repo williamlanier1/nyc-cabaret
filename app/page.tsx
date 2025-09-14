@@ -74,12 +74,23 @@ export default function Home() {
             {dateStr} • {timeStr}
           </div>
 
-          <div
-            className="mt-1 text-lg font-semibold leading-snug text-gray-900 hover:underline dark:text-white"
-            title={url || undefined}
-          >
-            {title}
-          </div>
+          {url ? (
+            <button
+              type="button"
+              className="mt-1 block text-left text-lg font-semibold leading-snug text-indigo-700 hover:underline dark:text-indigo-300"
+              title={url}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(url, "_blank", "noopener,noreferrer");
+              }}
+            >
+              {title}
+            </button>
+          ) : (
+            <div className="mt-1 text-lg font-semibold leading-snug text-gray-900 dark:text-white">
+              {title}
+            </div>
+          )}
 
           {props.artist ? (
             <div className="mt-1 text-gray-700 dark:text-neutral-200">
@@ -153,14 +164,7 @@ export default function Home() {
               }
             }}
             eventContent={eventContent}
-            eventDidMount={(arg) => {
-              // If FullCalendar created an <a> wrapper (when event.url exists), force _blank
-              const a = arg.el.closest("a") as HTMLAnchorElement | null;
-              if (a && a.href) {
-                a.target = "_blank";
-                a.rel = "noopener noreferrer";
-              }
-            }}
+            eventDidMount={undefined}
             // list styling polish (rows are not editable/draggy)
             editable={false}
             selectable={false}
