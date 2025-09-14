@@ -104,11 +104,11 @@ async function upsert(venueSlug, events) {
   }
 
   if (toUpdate.length > 0) {
-    // Use upsert on primary key id to update multiple rows with different values
-    const { error } = await supabaseAdmin
-      .from("events")
-      .upsert(toUpdate, { onConflict: "id" });
-    if (error) throw error;
+    for (const u of toUpdate) {
+      const { id, ...patch } = u;
+      const { error } = await supabaseAdmin.from("events").update(patch).eq("id", id);
+      if (error) throw error;
+    }
   }
 }
 

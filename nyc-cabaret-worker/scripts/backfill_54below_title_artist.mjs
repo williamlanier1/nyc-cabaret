@@ -93,12 +93,15 @@ async function run() {
     return;
   }
 
-  // Batch upsert by id
-  const { error: upErr } = await supabaseAdmin
-    .from("events")
-    .upsert(updates, { onConflict: "id" });
-  if (upErr) throw upErr;
-  console.log(`Backfill updated ${updates.length} rows.`);
+  // Perform per-row updates to avoid upsert insert constraints
+  let updated = 0;
+  for (const u of updates) {
+    const { id, ...patch } = u;
+    const { error: updErr } = await supabaseAdmin.from("events").update(patch).eq("id", id);
+    if (updErr) throw updErr;
+    updated++;
+  }
+  console.log(`Backfill updated ${updated} rows.`);
 }
 
 run().catch((e) => {
