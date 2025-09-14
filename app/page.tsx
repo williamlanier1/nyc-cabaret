@@ -146,7 +146,8 @@ export default function Home() {
                 // Keep title as the event title only; render artist separately below.
                 title: e.title,
                 start: e.start_at ?? e.start_time ?? e.start,
-                end: e.end_at ?? null,
+                // FullCalendar types do not accept null; use undefined when absent
+                end: e.end_at ?? undefined,
                 url: link, // FullCalendar native url prop
                 extendedProps: {
                   url: link,
