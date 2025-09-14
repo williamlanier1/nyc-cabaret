@@ -68,6 +68,7 @@ function smartTitleCase(input?: string | null): string | undefined {
 export default function Home() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedVenue, setSelectedVenue] = useState<string>("all");
 
   useEffect(() => {
     let mounted = true;
@@ -162,11 +163,41 @@ export default function Home() {
         {loading ? (
           <p className="text-gray-600 dark:text-neutral-300">Loading…</p>
         ) : (
-          <FullCalendar
-            plugins={[listPlugin, dayGridPlugin, interactionPlugin]}
-            initialView="listMonth"
-            headerToolbar={{ left: "prev,next today", center: "title", right: "listMonth" }}
-            events={events.map((e) => {
+          <>
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <label className="text-sm text-gray-700 dark:text-neutral-300">
+                Venue:
+                <select
+                  className="ml-2 rounded border border-gray-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                  value={selectedVenue}
+                  onChange={(e) => setSelectedVenue(e.target.value)}
+                >
+                  <option value="all">All venues</option>
+                  {Array.from(
+                    new Map(
+                      events
+                        .map((e) => ({ slug: e.venue?.slug ?? e.venue_slug, name: e.venue?.name ?? e.venue_slug }))
+                        .filter((v) => v.slug)
+                        .map((v) => [v.slug, v.name] as [string | undefined, string | undefined])
+                    ).entries()
+                  )
+                    .filter(([slug]) => !!slug)
+                    .map(([slug, name]) => (
+                      <option key={slug} value={slug as string}>
+                        {name || (slug as string)}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
+
+            <FullCalendar
+              plugins={[listPlugin, dayGridPlugin, interactionPlugin]}
+              initialView="listMonth"
+              headerToolbar={{ left: "prev,next today", center: "title", right: "listMonth" }}
+            events={events
+              .filter((e) => selectedVenue === "all" || (e.venue?.slug ?? e.venue_slug) === selectedVenue)
+              .map((e) => {
               const link = normalizeUrl(e.url);
               const niceTitle = smartTitleCase(e.title) ?? e.title;
               return {
@@ -202,6 +233,7 @@ export default function Home() {
             selectable={false}
             navLinks={false}
           />
+          </>
         )}
       </main>
     </div>

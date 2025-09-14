@@ -3,6 +3,7 @@ import { fetch54BelowMonths } from "./connectors/54below.mjs";
 import { fetchDontTellMamaMonths } from "./connectors/donttellmama.mjs";
 import { fetchJoesPubFromDoNYC } from "./connectors/joespub.mjs";
 import { fetchIcsForVenue } from "./connectors/ics.mjs";
+import { fetchBeechman } from "./connectors/beechman2.mjs";
 
 /* ----------------------- helpers ----------------------- */
 
@@ -163,6 +164,16 @@ async function run() {
     console.log(`Imported Chelsea Table + Stage: ${cleanCTS.length} events`);
   } catch (err) {
     console.warn("Chelsea Table + Stage import failed:", err?.message || err);
+  }
+
+  // Laurie Beechman Theatre (slug: beechman): ICS-first with HTML fallback
+  try {
+    const eventsBeech = await fetchBeechman("https://www.thebeechman.com");
+    const cleanBeech = uniqByUid(dropUnwanted(eventsBeech));
+    await upsert("beechman", cleanBeech);
+    console.log(`Imported Beechman: ${cleanBeech.length} events`);
+  } catch (err) {
+    console.warn("Beechman import failed:", err?.message || err);
   }
 }
 
