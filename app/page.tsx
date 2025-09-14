@@ -18,7 +18,7 @@ type EventRow = {
   url?: string | null; // from Supabase
   status?: string | null;
   venue_slug?: string;
-  venue?: { slug?: string };
+  venue?: { slug?: string; name?: string };
 };
 
 function normalizeUrl(input?: string | null): string | undefined {
@@ -53,7 +53,11 @@ export default function Home() {
   // Custom renderer: guarantees we show a visible, clickable <a>
   const eventContent = (arg: EventContentArg) => {
     const props = arg.event.extendedProps as Record<string, any>;
-    const venue = props.venue ?? "unknown";
+    const venue =
+      (props.venue_name as string | undefined) ||
+      (props.venue as string | undefined) ||
+      (props.venue_slug as string | undefined) ||
+      "unknown";
     const status = props.status as string | null;
     const url = (arg.event.url || props.url) as string | undefined;
 
@@ -81,7 +85,7 @@ export default function Home() {
           )}
 
           {props.artist ? (
-            <div className="mt-1 text-gray-700 dark:text-neutral-200">
+            <div className="mt-1 font-semibold text-gray-800 dark:text-neutral-100">
               {props.artist}
             </div>
           ) : null}
@@ -139,7 +143,8 @@ export default function Home() {
                 extendedProps: {
                   url: link,
                   artist: e.artist,
-                  venue: e.venue_slug ?? e.venue?.slug ?? "unknown",
+                  venue_slug: e.venue?.slug ?? e.venue_slug,
+                  venue_name: e.venue?.name,
                   status: e.status ?? null,
                 },
               };

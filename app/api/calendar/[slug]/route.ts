@@ -26,7 +26,7 @@ export async function GET(req: Request, context: { params: RouteParams }) {
   if (slug === "all") {
     const { data, error } = await supa
       .from("events")
-      .select("id,title,artist,start_at,end_at,url,status,tz,venue_id")
+      .select("id,title,artist,start_at,end_at,url,status,tz,venue_id, venue:venues (slug,name)")
       .gte("start_at", nowIso)
       .order("start_at", { ascending: true });
 
@@ -55,7 +55,7 @@ export async function GET(req: Request, context: { params: RouteParams }) {
 
     const { data, error } = await supa
       .from("events")
-      .select("id,title,artist,start_at,end_at,url,status,tz,venue_id")
+      .select("id,title,artist,start_at,end_at,url,status,tz,venue_id, venue:venues (slug,name)")
       .eq("venue_id", venue.id)
       .gte("start_at", nowIso)
       .order("start_at", { ascending: true });
