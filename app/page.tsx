@@ -141,17 +141,18 @@ export default function Home() {
             headerToolbar={{ left: "prev,next today", center: "title", right: "listMonth" }}
             events={events.map((e) => {
               const link = normalizeUrl(e.url);
+              const niceTitle = smartTitleCase(e.title) ?? e.title;
               return {
                 id: e.id,
                 // Keep title as the event title only; render artist separately below.
-                title: e.title,
+                title: niceTitle,
                 start: e.start_at ?? e.start_time ?? e.start,
                 // FullCalendar types do not accept null; use undefined when absent
                 end: e.end_at ?? undefined,
                 url: link, // FullCalendar native url prop
                 extendedProps: {
                   url: link,
-                  artist: e.artist,
+                  artist: smartTitleCase(e.artist) ?? e.artist,
                   venue_slug: e.venue?.slug ?? e.venue_slug,
                   venue_name: e.venue?.name,
                   status: e.status ?? null,
@@ -178,4 +179,19 @@ export default function Home() {
       </main>
     </div>
   );
+  const smartTitleCase = (input?: string | null): string | undefined => {
+    const s = (input ?? "").trim();
+    if (!s) return undefined;
+    if (/[a-z]/.test(s)) return s; // already mixed/lower
+    // title-case words; keep small words lower unless first/last; preserve simple acronyms
+    const small = new Set(["a","an","the","and","but","or","nor","as","at","by","for","in","of","on","to","up","via","per","from","with","vs","vs."]);    
+    const parts = s.split(/\s+/);
+    const lastIdx = parts.length - 1;
+    const cap = (w: string, isFirst: boolean, isLast: boolean) => {
+      const lower = w.toLowerCase();
+      if (!isFirst && !isLast && small.has(lower)) return lower;
+      return lower.split("-").map(seg => seg ? seg[0].toUpperCase() + seg.slice(1) : seg).join("-");
+    };
+    return parts.map((w, i) => cap(w, i === 0, i === lastIdx)).join(" ");
+  };
 }

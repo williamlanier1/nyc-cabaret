@@ -16,7 +16,13 @@ async function getVenueId(slug) {
 function needsTitleCase(s) {
   const t = (s || "").trim();
   if (!t) return false;
-  return !/[a-z]/.test(t) && /[A-Z]/.test(t);
+  // If no lowercase letters and there is at least one uppercase -> ALL CAPS
+  if (!/[a-z]/.test(t) && /[A-Z]/.test(t)) return true;
+  // Otherwise, treat as shouty if >=80% of alpha letters are uppercase
+  const letters = t.match(/[A-Za-z]/g) || [];
+  if (letters.length === 0) return false;
+  const upper = letters.filter((ch) => /[A-Z]/.test(ch)).length;
+  return upper / letters.length >= 0.8;
 }
 
 async function run() {
@@ -32,11 +38,13 @@ async function run() {
 
     for (const r of rows || []) {
       const patch = {};
-      if (needsTitleCase(r.title)) {
-        patch.title = smartTitleCase(r.title);
+      const newTitle = smartTitleCase(r.title || "");
+      if (newTitle && newTitle !== r.title) {
+        patch.title = newTitle;
       }
-      if (r.artist && needsTitleCase(r.artist)) {
-        patch.artist = smartTitleCase(r.artist);
+      if (r.artist) {
+        const newArtist = smartTitleCase(r.artist);
+        if (newArtist !== r.artist) patch.artist = newArtist;
       }
       if (Object.keys(patch).length > 0) {
         patch.last_modified_at = new Date().toISOString();
@@ -57,4 +65,3 @@ run().catch((e) => {
   console.error("Backfill titlecase error:", e?.message || e);
   process.exit(1);
 });
-
