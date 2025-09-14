@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { DateTime } from "luxon";
-import { uidHash, smartTitleCase } from "../util.mjs";
+import { uidHash, smartTitleCase, ensureArtistFromTitle } from "../util.mjs";
 
 const TZ = "America/New_York";
 const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
@@ -83,7 +83,7 @@ function eventRow(venueSlug, rawTitle, startISO, url, sourceUrl) {
   let cleaned = smartTitleCase(rawTitle); // strips quotes + handles casing
   let { title, artist } = splitTitleAndArtist(cleaned);
   title = smartTitleCase(title);
-  if (artist) artist = smartTitleCase(artist);
+  artist = ensureArtistFromTitle(title, artist ? smartTitleCase(artist) : null);
   return {
     uid_hash: uidHash(venueSlug, rawTitle, startISO),
     title,

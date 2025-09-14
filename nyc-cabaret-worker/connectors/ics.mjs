@@ -12,7 +12,10 @@ export async function fetchIcsForVenue(venueSlug, icsUrl) {
 
     const title = (v.summary || "Untitled").toString().trim();
     const startISO = new Date(v.start).toISOString();
-    const endISO = v.end ? new Date(v.end).toISOString() : null;
+    // Some feeds include an end time we do not want to display (e.g., Chelsea Table + Stage).
+    // Suppress end_at for that venue so the calendar shows start only.
+    const keepEnd = venueSlug !== "chelsea-table-stage";
+    const endISO = keepEnd && v.end ? new Date(v.end).toISOString() : null;
 
     out.push({
       uid_hash: uidHash(venueSlug, title, startISO),

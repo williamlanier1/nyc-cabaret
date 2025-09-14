@@ -53,3 +53,26 @@ export function smartTitleCase(input) {
   if (idx === -1) return s; // no letters
   return s.slice(0, idx) + s.charAt(idx).toUpperCase() + s.slice(idx + 1);
 }
+
+// Heuristic: detect if a title looks like a solo person name (useful to set artist when title has only the name)
+function isLikelySoloName(title) {
+  const t = (title || "").trim();
+  if (!t) return false;
+  if (/\d/.test(t)) return false; // no digits
+  if (/[":]/.test(t)) return false; // skip if quotes/colon present
+  const bad = /( at | with | presents | show\b| band\b| trio\b| quartet\b| orchestra\b| comedy\b| cabaret\b)/i;
+  if (bad.test(t)) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 4) return false;
+  // All words mostly alphabetic/apostrophes/periods, and start with a letter
+  for (const w of words) {
+    if (!/^[A-Za-z][A-Za-z'.-]*$/.test(w)) return false;
+  }
+  return true;
+}
+
+// If artist is missing and title looks like a solo name, use the title as artist.
+export function ensureArtistFromTitle(title, artist) {
+  if (artist && String(artist).trim().length > 0) return artist;
+  return isLikelySoloName(title) ? title : null;
+}
