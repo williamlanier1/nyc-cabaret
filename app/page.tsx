@@ -14,11 +14,18 @@ type EventRow = {
   start_time?: string;
   start?: string;
   end_at?: string;
-  url?: string | null;
+  url?: string | null; // from Supabase
   status?: string | null;
   venue_slug?: string;
   venue?: { slug?: string };
 };
+
+function normalizeUrl(input?: string | null): string | undefined {
+  const u = (input ?? "").trim();
+  if (!u) return undefined;
+  // Accept absolute URLs; if someone ever stored a bare domain, you could add a scheme here.
+  return u;
+}
 
 export default function Home() {
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -56,10 +63,6 @@ export default function Home() {
 
         {loading ? (
           <p className="text-gray-600 dark:text-neutral-300">Loading…</p>
-        ) : events.length === 0 ? (
-          <p className="text-gray-700 dark:text-neutral-200">
-            No upcoming events yet.
-          </p>
         ) : (
           <FullCalendar
             plugins={[listPlugin, dayGridPlugin, interactionPlugin]}
@@ -69,23 +72,38 @@ export default function Home() {
               center: "title",
               right: "listMonth",
             }}
-            events={events.map((e) => ({
-              id: e.id,
-              title: e.artist ? `${e.title} — ${e.artist}` : e.title,
-              start: e.start_at ?? e.start_time ?? e.start,
-              end: e.end_at ?? null,
-              url: e.url ?? undefined,
-              extendedProps: {
-                venue: e.venue_slug ?? e.venue?.slug ?? "unknown",
-                status: e.status ?? null,
-              },
-            }))}
+            events={events.map((e) => {
+              const link = normalizeUrl(e.url);
+              return {
+                id: e.id,
+                title: e.artist ? `${e.title} — ${e.artist}` : e.title,
+                start: e.start_at ?? e.start_time ?? e.start,
+                end: e.end_at ?? null,
+                url: link, // FC will render an <a> when this is defined & non-empty
+                extendedProps: {
+                  url: link, // fallback for eventClick
+                  venue: e.venue_slug ?? e.venue?.slug ?? "unknown",
+                  status: e.status ?? null,
+                },
+              };
+            })}
+            // Open in a new tab on click
             eventClick={(info) => {
               const url =
-                info.event.url || (info.event.extendedProps as any)?.url;
-              if (url) {
-                window.open(url, "_blank", "noopener,noreferrer");
+                info.event.url ||
+                (info.event.extendedProps as Record<string, unknown>)?.url;
+              if (typeof url === "string" && url) {
+                // Don’t let FC try to navigate the same page
                 info.jsEvent.preventDefault();
+                window.open(url, "_blank", "noopener,noreferrer");
+              }
+            }}
+            // Force the anchor that FC renders to open in a new tab (helps Safari)
+            eventDidMount={(arg) => {
+              const a = arg.el.querySelector("a") as HTMLAnchorElement | null;
+              if (a && a.href) {
+                a.target = "_blank";
+                a.rel = "noopener noreferrer";
               }
             }}
             editable={false}
