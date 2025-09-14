@@ -55,7 +55,9 @@ async function fetchArtistFromDetail(detailUrl) {
 
     // Heuristics: try specific fields first, then fallback to title patterns
     const candidates = [
-      ".artist", ".event-artist", "[itemprop=performer]", "meta[name='author']",
+      ".artist", ".event-artist", "[itemprop=performer]",
+      "meta[name='author']", "meta[property='og:title']",
+      ".tribe-events-single-event-title", ".event-header .artist",
     ];
     for (const sel of candidates) {
       const el = $(sel).first();
@@ -66,7 +68,10 @@ async function fetchArtistFromDetail(detailUrl) {
 
     // Fallback: sometimes page title includes artist — e.g. "Jane Doe: Show Title"
     const title = norm($("title").first().text());
-    const m = title.match(/^(.{3,}?)\s*[:\-\u2014]\s+.+/);
+    let m = title.match(/^(.{3,}?)\s*[:\-\u2014]\s+.+/);
+    if (m && m[1]) return norm(m[1]);
+    const h1 = norm($("h1").first().text());
+    m = h1.match(/^(.{3,}?)\s*[:\-\u2014]\s+.+/);
     if (m && m[1]) return norm(m[1]);
   } catch {}
   return null;
@@ -217,6 +222,86 @@ export async function fetchBeechmanMonths(baseUrl, monthsAhead = 3) {
     // Provide a fallback month/year for the next page if headings are sparse
     if (!fallbackMY) fallbackMY = findCalendarMonthYear($);
   }
+
+  if (out.length > 0) return out;
+
+  // Fallback 1: try list view at /events/ (server-rendered for many WP sites)
+  try {
+    const origin = new URL(baseUrl).origin;
+    const listUrl = new URL("/events/", origin).toString();
+    const res = await fetch(listUrl, { headers: { "user-agent": "nyc-cabaret-bot/1.0 (+contact)" }});
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    const items = new Set();
+    $("a[href*='/events/']").each((_, a) => {
+      const href = $(a).attr("href") || "";
+      const title = norm($(a).text());
+      const dt = $(a).find("time[datetime]").attr("datetime") || $(a).closest("article,li,div").find("time[datetime]").attr("datetime");
+      if (!href || !title || !dt) return;
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return;
+      let abs = href;
+      if (abs && !/^https?:\/\//i.test(abs)) {
+        try { abs = new URL(abs, listUrl).toString(); } catch {}
+      }
+      items.add(JSON.stringify({ title, href: abs, startISO: d.toISOString() }));
+    });
+
+    for (const s of items) {
+      const ev = JSON.parse(s);
+      const artist = await fetchArtistFromDetail(ev.href);
+      out.push(eventRow(venueSlug, ev.title, ev.startISO, ev.href, listUrl, artist));
+    }
+    console.log(`[Beechman] list view items=${out.length}, url=${listUrl}`);
+  } catch (e) {
+    console.warn("[Beechman] list view fetch failed", e?.message || e);
+  }
+
+  if (out.length > 0) return out;
+
+  // Fallback 2: try common ICS endpoints
+  try {
+    const origin = new URL(baseUrl).origin;
+    const candidates = [
+      new URL("/events/?ical=1", origin).toString(),
+      new URL("/calendar/?ical=1", origin).toString(),
+      new URL("/?ical=1", origin).toString(),
+      new URL("/calendar.ics", origin).toString(),
+    ];
+    for (const icsUrl of candidates) {
+      try {
+        const res = await fetch(icsUrl, { headers: { "user-agent": "nyc-cabaret-bot/1.0 (+contact)" }});
+        const text = await res.text();
+        if (text && /BEGIN:VCALENDAR/i.test(text)) {
+          // Lazy import to avoid circular import; duplicate small ICS logic inline
+          const { default: ical } = await import("node-ical");
+          const data = await ical.async.fromURL(icsUrl);
+          for (const key of Object.keys(data)) {
+            const v = data[key];
+            if (v.type !== "VEVENT") continue;
+            const title = (v.summary || "Untitled").toString().trim();
+            const startISO = new Date(v.start).toISOString();
+            const endISO = v.end ? new Date(v.end).toISOString() : null;
+            out.push({
+              uid_hash: uidHash(venueSlug, title, startISO),
+              title,
+              artist: null,
+              venue_slug: venueSlug,
+              start_at: startISO,
+              end_at: endISO,
+              url: v.url || icsUrl,
+              status: (v.status || "confirmed").toLowerCase(),
+              source_type: "ics",
+              source_ref: icsUrl,
+            });
+          }
+          console.log(`[Beechman] ICS import via ${icsUrl}: ${out.length} events`);
+          break;
+        }
+      } catch {}
+    }
+  } catch {}
 
   return out;
 }
