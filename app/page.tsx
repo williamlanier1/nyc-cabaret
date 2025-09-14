@@ -141,7 +141,8 @@ export default function Home() {
               const link = normalizeUrl(e.url);
               return {
                 id: e.id,
-                title: e.artist ? `${e.title} — ${e.artist}` : e.title,
+                // Keep title as the event title only; render artist separately below.
+                title: e.title,
                 start: e.start_at ?? e.start_time ?? e.start,
                 end: e.end_at ?? null,
                 url: link, // FullCalendar native url prop
