@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./supabase.mjs";
 import { fetch54BelowMonths } from "./connectors/54below.mjs";
 import { fetchDontTellMamaMonths } from "./connectors/donttellmama.mjs";
+import { fetchJoesPubFromDoNYC } from "./connectors/joespub.mjs";
 
 /* ----------------------- helpers ----------------------- */
 
@@ -134,6 +135,16 @@ async function run() {
     console.log(`Imported Don't Tell Mama: ${cleanDTM.length} events`);
   } catch (err) {
     console.warn("Don't Tell Mama import failed:", err?.message || err);
+  }
+
+  // Joe's Pub via DoNYC listing (Cloudflare blocks direct site scraping)
+  try {
+    const eventsJP = await fetchJoesPubFromDoNYC("https://donyc.com/venues/joes-pub");
+    const cleanJP = uniqByUid(dropUnwanted(eventsJP));
+    await upsert("joes-pub", cleanJP);
+    console.log(`Imported Joe's Pub: ${cleanJP.length} events`);
+  } catch (err) {
+    console.warn("Joe's Pub import failed:", err?.message || err);
   }
 }
 

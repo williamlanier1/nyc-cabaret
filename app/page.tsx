@@ -38,6 +38,33 @@ function normalizeUrl(input?: string | null): string | undefined {
   return `https://${u}`;
 }
 
+// Title-case ALL-CAPS strings for display while preserving mixed/lowercase
+function smartTitleCase(input?: string | null): string | undefined {
+  const s = (input ?? "").trim();
+  if (!s) return undefined;
+  const hasLower = /[a-z]/.test(s);
+  const hasUpper = /[A-Z]/.test(s);
+  // If ALL-CAPS (no lowercase), apply full title casing with small-word handling
+  if (!hasLower && hasUpper) {
+    const small = new Set(["a","an","the","and","but","or","nor","as","at","by","for","in","of","on","to","up","via","per","from","with","vs","vs."]);
+    const parts = s.split(/\s+/);
+    const lastIdx = parts.length - 1;
+    const cap = (w: string, isFirst: boolean, isLast: boolean) => {
+      const lower = w.toLowerCase();
+      if (!isFirst && !isLast && small.has(lower)) return lower;
+      return lower
+        .split("-")
+        .map((seg) => (seg ? seg[0].toUpperCase() + seg.slice(1) : seg))
+        .join("-");
+    };
+    return parts.map((w, i) => cap(w, i === 0, i === lastIdx)).join(" ");
+  }
+  // Otherwise, preserve existing casing but ensure the first character is uppercase
+  const idx = s.search(/[A-Za-z]/);
+  if (idx === -1) return s; // no letters
+  return s.slice(0, idx) + s.charAt(idx).toUpperCase() + s.slice(idx + 1);
+}
+
 export default function Home() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,19 +206,4 @@ export default function Home() {
       </main>
     </div>
   );
-  const smartTitleCase = (input?: string | null): string | undefined => {
-    const s = (input ?? "").trim();
-    if (!s) return undefined;
-    if (/[a-z]/.test(s)) return s; // already mixed/lower
-    // title-case words; keep small words lower unless first/last; preserve simple acronyms
-    const small = new Set(["a","an","the","and","but","or","nor","as","at","by","for","in","of","on","to","up","via","per","from","with","vs","vs."]);    
-    const parts = s.split(/\s+/);
-    const lastIdx = parts.length - 1;
-    const cap = (w: string, isFirst: boolean, isLast: boolean) => {
-      const lower = w.toLowerCase();
-      if (!isFirst && !isLast && small.has(lower)) return lower;
-      return lower.split("-").map(seg => seg ? seg[0].toUpperCase() + seg.slice(1) : seg).join("-");
-    };
-    return parts.map((w, i) => cap(w, i === 0, i === lastIdx)).join(" ");
-  };
 }
