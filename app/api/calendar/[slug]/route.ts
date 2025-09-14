@@ -23,9 +23,9 @@ function supabaseServer() {
   return createClient(url, key);
 }
 
-export async function GET(req: Request, context: { params: RouteParams }) {
+export async function GET(req: Request, { params }: { params: { slug: string } }) {
   const supa = supabaseServer();
-  const slug = context.params.slug;
+  const slug = params.slug;
   const { searchParams } = new URL(req.url);
   const format = (searchParams.get("format") || "ics").toLowerCase();
 
