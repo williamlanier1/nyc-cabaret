@@ -57,23 +57,11 @@ export default function Home() {
     const status = props.status as string | null;
     const url = (arg.event.url || props.url) as string | undefined;
 
-    const starts = arg.event.start!;
-    const dateStr = new Intl.DateTimeFormat("en-US", {
-      weekday: "short", month: "short", day: "numeric",
-    }).format(starts);
-    const timeStr = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric", minute: "2-digit",
-    }).format(starts);
-
     const title = arg.event.title || "";
 
     return (
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm text-gray-600 dark:text-neutral-300">
-            {dateStr} • {timeStr}
-          </div>
-
           {url ? (
             <button
               type="button"
@@ -105,17 +93,19 @@ export default function Home() {
           ) : null}
         </div>
 
-        <span
-          className={[
-            "shrink-0 rounded-full px-3 py-1 text-xs font-medium",
-            venue === "54-below"
-              ? "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:text-fuchsia-200"
-              : "bg-gray-100 text-gray-800 dark:bg-neutral-800 dark:text-neutral-200",
-          ].join(" ")}
-          title={venue}
-        >
-          {venue}
-        </span>
+        {venue && venue !== "unknown" ? (
+          <span
+            className={[
+              "shrink-0 rounded-full px-3 py-1 text-xs font-medium",
+              venue === "54-below"
+                ? "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:text-fuchsia-200"
+                : "bg-gray-100 text-gray-800 dark:bg-neutral-800 dark:text-neutral-200",
+            ].join(" ")}
+            title={venue}
+          >
+            {venue}
+          </span>
+        ) : null}
       </div>
     );
   };
