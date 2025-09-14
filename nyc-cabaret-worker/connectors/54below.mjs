@@ -22,10 +22,28 @@ function extractArtistFromTitle(title) {
   return null;
 }
 
-function eventRow(venueSlug, title, startISO, url, sourceUrl) {
-  const artist = extractArtistFromTitle(title);
+function splitTitleAndArtist(title) {
+  const t = (title || "").trim();
+  if (!t) return { title: t, artist: null };
+  // Prefer colon pattern: "Artist: Show Title"
+  const colonIdx = t.indexOf(":");
+  if (colonIdx > 0) {
+    const left = t.slice(0, colonIdx).trim();
+    const right = t.slice(colonIdx + 1).trim();
+    const extracted = extractArtistFromTitle(t);
+    if (left && right && extracted && extracted.toLowerCase() === left.toLowerCase()) {
+      return { title: right, artist: left };
+    }
+  }
+  // Fallback: try other heuristics (e.g., "Artist at 54 Below") but keep full title
+  return { title: t, artist: extractArtistFromTitle(t) };
+}
+
+function eventRow(venueSlug, rawTitle, startISO, url, sourceUrl) {
+  const { title, artist } = splitTitleAndArtist(rawTitle);
   return {
-    uid_hash: uidHash(venueSlug, title, startISO),
+    // Keep uid_hash stable by hashing the rawTitle (pre-split)
+    uid_hash: uidHash(venueSlug, rawTitle, startISO),
     title,
     artist,
     venue_slug: venueSlug,
