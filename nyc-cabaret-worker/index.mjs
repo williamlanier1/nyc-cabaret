@@ -32,26 +32,76 @@ async function getVenueId(slug) {
 async function upsert(venueSlug, events) {
   const venueId = await getVenueId(venueSlug);
 
-  const rows = events.map((e) => ({
-    uid_hash: e.uid_hash,
-    title: e.title,
-    artist: e.artist ?? null,
-    venue_id: venueId,
-    start_at: e.start_at,
-    end_at: e.end_at ?? null,
-    tz: "America/New_York",
-    url: e.url ?? null,
-    status: e.status || "confirmed",
-    source_type: e.source_type,
-    source_ref: e.source_ref ?? null,
-    last_modified_at: new Date().toISOString(),
-  }));
-
-  const { error } = await supabaseAdmin
+  // Fetch existing rows once for selective updates
+  const { data: existing, error: selErr } = await supabaseAdmin
     .from("events")
-    .upsert(rows, { onConflict: "uid_hash" });
+    .select("id, uid_hash, start_at, end_at")
+    .eq("venue_id", venueId);
+  if (selErr) throw selErr;
 
-  if (error) throw error;
+  const byUid = new Map();
+  for (const row of existing || []) byUid.set(row.uid_hash, row);
+
+  const nowISO = new Date().toISOString();
+  const toInsert = [];
+  const toUpdate = [];
+
+  const normISO = (v) => {
+    if (!v) return null;
+    try { return new Date(v).toISOString(); } catch { return null; }
+  };
+
+  for (const e of events) {
+    const ex = byUid.get(e.uid_hash);
+    if (!ex) {
+      toInsert.push({
+        uid_hash: e.uid_hash,
+        title: e.title,
+        artist: e.artist ?? null,
+        venue_id: venueId,
+        start_at: e.start_at,
+        end_at: e.end_at ?? null,
+        tz: "America/New_York",
+        url: e.url ?? null,
+        status: e.status || "confirmed",
+        source_type: e.source_type,
+        source_ref: e.source_ref ?? null,
+        last_modified_at: nowISO,
+      });
+      continue;
+    }
+
+    // Only update if date/time changed. Do NOT touch title/artist (manual edits allowed).
+    const exStart = normISO(ex.start_at);
+    const exEnd = normISO(ex.end_at);
+    const newStart = normISO(e.start_at);
+    const newEnd = normISO(e.end_at ?? null);
+
+    const changed = exStart !== newStart || exEnd !== newEnd;
+    if (changed) {
+      toUpdate.push({
+        id: ex.id,
+        start_at: e.start_at,
+        end_at: e.end_at ?? null,
+        // keep TZ consistent with worker policy
+        tz: "America/New_York",
+        last_modified_at: nowISO,
+      });
+    }
+  }
+
+  if (toInsert.length > 0) {
+    const { error } = await supabaseAdmin.from("events").insert(toInsert);
+    if (error) throw error;
+  }
+
+  if (toUpdate.length > 0) {
+    // Use upsert on primary key id to update multiple rows with different values
+    const { error } = await supabaseAdmin
+      .from("events")
+      .upsert(toUpdate, { onConflict: "id" });
+    if (error) throw error;
+  }
 }
 
 /* ----------------------- main -------------------------- */
