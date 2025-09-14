@@ -5,19 +5,21 @@ import { fetch54BelowMonths } from "./connectors/54below.mjs";
 
 // remove events you don't want in the DB
 function dropUnwanted(events) {
-  const isUnwanted = (t) => {
-    const s = (t || "").toString();
+  const isUnwanted = (s) => {
+    const t = (s || "").toString();
     return (
-      /live\s*stream/i.test(s) ||          // livestream, live stream
-      /livestream/i.test(s) ||
-      /private\s*event/i.test(s) ||        // Private Event(s)
-      /\bclosed\b/i.test(s) ||             // Closed / Venue Closed
-      /no\s*shows?/i.test(s) ||            // No Show / No Shows
-      /no\s*performances?/i.test(s) ||     // No Performance(s)
-      /\bdark\b/i.test(s)                  // Dark night
+      /live\s*stream/i.test(t) ||
+      /livestream/i.test(t) ||
+      /virtual/i.test(t) ||
+      /on\s*demand/i.test(t) ||
+      /private\s*event/i.test(t) ||
+      /\bclosed\b/i.test(t) ||
+      /no\s*shows?/i.test(t) ||
+      /no\s*performances?/i.test(t) ||
+      /\bdark\b/i.test(t)
     );
   };
-  return events.filter((e) => !isUnwanted(e.title));
+  return events.filter((e) => !isUnwanted(e.title) && !isUnwanted(e.url) && !isUnwanted(e.source_ref));
 }
 
 // dedupe by uid_hash to avoid "ON CONFLICT ... affect row a second time"

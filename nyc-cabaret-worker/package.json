@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.mjs",
-    "backfill:54below": "node scripts/backfill_54below_title_artist.mjs"
+    "backfill:54below": "node scripts/backfill_54below_title_artist.mjs",
+    "cleanup:unwanted": "node scripts/cleanup_unwanted.mjs"
   },
   "engines": {
     "node": ">=18"
