@@ -5,11 +5,19 @@ import { fetch54BelowMonths } from "./connectors/54below.mjs";
 
 // remove events you don't want in the DB
 function dropUnwanted(events) {
-  return events.filter(
-    (e) =>
-      !/livestream/i.test(e.title) &&      // skip livestreams
-      !/private\s*event/i.test(e.title)    // skip "Private Event" / "Private Events"
-  );
+  const isUnwanted = (t) => {
+    const s = (t || "").toString();
+    return (
+      /live\s*stream/i.test(s) ||          // livestream, live stream
+      /livestream/i.test(s) ||
+      /private\s*event/i.test(s) ||        // Private Event(s)
+      /\bclosed\b/i.test(s) ||             // Closed / Venue Closed
+      /no\s*shows?/i.test(s) ||            // No Show / No Shows
+      /no\s*performances?/i.test(s) ||     // No Performance(s)
+      /\bdark\b/i.test(s)                  // Dark night
+    );
+  };
+  return events.filter((e) => !isUnwanted(e.title));
 }
 
 // dedupe by uid_hash to avoid "ON CONFLICT ... affect row a second time"

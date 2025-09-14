@@ -57,6 +57,18 @@ function eventRow(venueSlug, rawTitle, startISO, url, sourceUrl) {
 }
 
 const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
+const isUnwantedTitle = (t) => {
+  const s = (t || "").toString();
+  return (
+    /live\s*stream/i.test(s) ||
+    /livestream/i.test(s) ||
+    /private\s*event/i.test(s) ||
+    /\bclosed\b/i.test(s) ||
+    /no\s*shows?/i.test(s) ||
+    /no\s*performances?/i.test(s) ||
+    /\bdark\b/i.test(s)
+  );
+};
 const monthMap = {
   Jan: 1,
   Feb: 2,
@@ -87,7 +99,7 @@ function scrapeOneCalendarPage($, pageUrl, year) {
     $day.find("ul.events > li").each((__, li) => {
       const $li = $(li);
       const titleText = norm($li.find("span.title").first().text());
-      if (!titleText) return;
+      if (!titleText || isUnwantedTitle(titleText)) return;
 
       let href =
         $li.find("a:has(span.title)").first().attr("href") ||
