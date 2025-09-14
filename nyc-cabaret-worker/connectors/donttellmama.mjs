@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { DateTime } from "luxon";
-import { uidHash } from "../util.mjs";
+import { uidHash, smartTitleCase } from "../util.mjs";
 
 const TZ = "America/New_York";
 const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
@@ -57,7 +57,9 @@ function splitTitleAndArtist(raw) {
 }
 
 function eventRow(venueSlug, rawTitle, startISO, url, sourceUrl) {
-  const { title, artist } = splitTitleAndArtist(rawTitle);
+  let { title, artist } = splitTitleAndArtist(rawTitle);
+  title = smartTitleCase(title);
+  if (artist) artist = smartTitleCase(artist);
   return {
     uid_hash: uidHash(venueSlug, rawTitle, startISO),
     title,
@@ -130,4 +132,3 @@ export async function fetchDontTellMamaMonths(baseUrl = "https://shows.donttellm
 
   return out;
 }
-

@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { DateTime } from "luxon";
-import { uidHash } from "../util.mjs";
+import { uidHash, smartTitleCase } from "../util.mjs";
 
 function extractArtistFromTitle(title) {
   const t = (title || "").trim();
@@ -40,7 +40,10 @@ function splitTitleAndArtist(title) {
 }
 
 function eventRow(venueSlug, rawTitle, startISO, url, sourceUrl) {
-  const { title, artist } = splitTitleAndArtist(rawTitle);
+  let { title, artist } = splitTitleAndArtist(rawTitle);
+  // Normalize shouty case if needed
+  title = smartTitleCase(title);
+  if (artist) artist = smartTitleCase(artist);
   return {
     // Keep uid_hash stable by hashing the rawTitle (pre-split)
     uid_hash: uidHash(venueSlug, rawTitle, startISO),
