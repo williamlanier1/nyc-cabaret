@@ -88,13 +88,21 @@ function scrapeMonthPage($, pageUrl, fallbackMY) {
   const yearNum = monthYear ? monthYear.year : null;
 
   // Try to find day groupings with dates
-  $("[data-day],[data-date], .day, .calendar-day").each((_, dayEl) => {
+  $("[data-day],[data-date], .day, .calendar-day, .fc-daygrid-day, .tribe-events-calendar-month__day").each((_, dayEl) => {
     const $day = $(dayEl);
     // Extract a day number (1-31)
     let dayNum = null;
-    const dayText = norm($day.attr("data-day") || $day.attr("data-date") || $day.find(".day-number, .date, .daynum").first().text());
+    const dataDate = $day.attr("data-date") || ""; // e.g., 2025-09-14
+    const dayText = norm($day.attr("data-day") || dataDate || $day.find(".day-number, .date, .daynum").first().text());
     const m = dayText.match(/\b(\d{1,2})\b/);
     if (m) dayNum = parseInt(m[1], 10);
+    let baseY = null, baseM = null, baseD = null;
+    const mYMD = (dataDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (mYMD) {
+      baseY = parseInt(mYMD[1], 10);
+      baseM = parseInt(mYMD[2], 10);
+      baseD = parseInt(mYMD[3], 10);
+    }
 
     // Fallback: look for a time tag with full datetime
     const $events = $day.find("a, article, li");
@@ -102,7 +110,10 @@ function scrapeMonthPage($, pageUrl, fallbackMY) {
       const $ev = $(ev);
       // Link + title
       const a = $ev.find("a[href]").first();
-      const href = a.attr("href") || "";
+      let href = a.attr("href") || "";
+      if (href && !/^https?:\/\//i.test(href)) {
+        try { href = new URL(href, pageUrl).toString(); } catch {}
+      }
       const title = norm($ev.find(".event-title, .title, h3, h2").first().text() || a.text());
       if (!href || !title) return;
 
@@ -115,9 +126,23 @@ function scrapeMonthPage($, pageUrl, fallbackMY) {
       }
 
       // If we only have a textual time on the card, combine with day/month/year
-      if (!startISO && monthIndex && yearNum && dayNum) {
-        const timeText = $ev.find("time").first().text() || $ev.find(".time, .event-time").first().text();
-        if (timeText) startISO = parseTimeToISO(yearNum, monthIndex, dayNum, timeText);
+      if (!startISO) {
+        // Pull time text from common locations or from the full element text
+        let timeText = $ev.find("time").first().text() || $ev.find(".time, .event-time").first().text();
+        if (!timeText) {
+          const txt = norm($ev.text());
+          const mt = txt.match(/\b(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\b/i);
+          if (mt) timeText = mt[0];
+        }
+
+        if (timeText) {
+          // Prefer exact Y-M-D from data-date; else use month/year + day number
+          if (baseY && baseM && baseD) {
+            startISO = parseTimeToISO(baseY, baseM, baseD, timeText);
+          } else if (monthIndex && yearNum && dayNum) {
+            startISO = parseTimeToISO(yearNum, monthIndex, dayNum, timeText);
+          }
+        }
       }
 
       if (!startISO) return; // can't schedule without a datetime
@@ -131,7 +156,10 @@ function scrapeMonthPage($, pageUrl, fallbackMY) {
     $("article, li, .event, .event-card").each((_, el) => {
       const $el = $(el);
       const a = $el.find("a[href]").first();
-      const href = a.attr("href") || "";
+      let href = a.attr("href") || "";
+      if (href && !/^https?:\/\//i.test(href)) {
+        try { href = new URL(href, pageUrl).toString(); } catch {}
+      }
       const title = norm($el.find(".event-title, .title, h3, h2").first().text() || a.text());
       const dt = $el.find("time[datetime]").attr("datetime");
       if (!href || !title || !dt) return;
