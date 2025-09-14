@@ -6,11 +6,16 @@ const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
 
 function monthYearFromText(text) {
   const t = norm(text);
-  const re = /(January|February|March|April|May|June|July|August|September|October|November|December)\D{0,10}(\d{4})/i;
-  const m = t.match(re);
-  if (!m) return null;
-  const month = m[1];
-  const year = parseInt(m[2], 10);
+  if (!t) return null;
+  const months = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December",
+  ];
+  const lower = t.toLowerCase();
+  const month = months.find((m) => lower.includes(m.toLowerCase()));
+  const yearMatch = t.match(new RegExp("\\b(\\d{4})\\b"));
+  if (!month || !yearMatch) return null;
+  const year = parseInt(yearMatch[1], 10);
   return { month, year };
 }
 
@@ -182,4 +187,3 @@ export async function fetchBeechmanMonths(baseUrl, monthsAhead = 3) {
 
   return out;
 }
-
