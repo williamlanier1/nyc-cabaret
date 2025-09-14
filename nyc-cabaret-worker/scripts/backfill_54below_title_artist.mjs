@@ -52,22 +52,39 @@ async function run() {
   const venueSlug = "54-below";
   const venueId = await getVenueId(venueSlug);
 
-  // Fetch candidates: artist empty/null and title likely to be split (has colon)
+  // Fetch all events for the venue; we'll process both:
+  // 1) artist empty + colon titles -> split into artist/title
+  // 2) artist present + title begins with `${artist}:` -> strip artist from title
   const { data: rows, error } = await supabaseAdmin
     .from("events")
     .select("id,title,artist")
     .eq("venue_id", venueId)
-    .like("title", "%:%")
-    .or("artist.is.null,artist.eq.");
+    .limit(5000);
   if (error) throw error;
 
   const updates = [];
   for (const r of rows || []) {
     const t0 = norm(r.title || "");
-    const { title, artist } = splitTitleAndArtist(t0);
-    // Only update if we produced a non-empty artist and the title actually changes
-    if (artist && title && (artist !== r.artist || title !== t0)) {
-      updates.push({ id: r.id, title, artist, last_modified_at: new Date().toISOString(), tz: TZ });
+    const a0 = norm(r.artist || "");
+    const hasArtist = a0.length > 0;
+
+    if (!hasArtist && t0.includes(":")) {
+      const { title, artist } = splitTitleAndArtist(t0);
+      if (artist && title && (artist !== r.artist || title !== t0)) {
+        updates.push({ id: r.id, title, artist, last_modified_at: new Date().toISOString(), tz: TZ });
+        continue;
+      }
+    }
+
+    if (hasArtist) {
+      const prefix = a0 + ":";
+      if (t0.toLowerCase().startsWith(prefix.toLowerCase())) {
+        const stripped = norm(t0.slice(prefix.length));
+        if (stripped && stripped !== t0) {
+          updates.push({ id: r.id, title: stripped, last_modified_at: new Date().toISOString(), tz: TZ });
+          continue;
+        }
+      }
     }
   }
 
@@ -88,4 +105,3 @@ run().catch((e) => {
   console.error("Backfill error:", e?.message || e);
   process.exit(1);
 });
-
