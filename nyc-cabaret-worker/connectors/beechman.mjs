@@ -88,7 +88,9 @@ function scrapeMonthPage($, pageUrl, fallbackMY) {
   const yearNum = monthYear ? monthYear.year : null;
 
   // Try to find day groupings with dates
+  let dayCells = 0;
   $("[data-day],[data-date], .day, .calendar-day, .fc-daygrid-day, .tribe-events-calendar-month__day").each((_, dayEl) => {
+    dayCells++;
     const $day = $(dayEl);
     // Extract a day number (1-31)
     let dayNum = null;
@@ -105,20 +107,20 @@ function scrapeMonthPage($, pageUrl, fallbackMY) {
     }
 
     // Fallback: look for a time tag with full datetime
-    const $events = $day.find("a, article, li");
+    const $events = $day.find("a, article, li, .event, .event-item, .fc-event");
     $events.each((__, ev) => {
       const $ev = $(ev);
       // Link + title
-      const a = $ev.find("a[href]").first();
+      const a = $ev.is("a") ? $ev : $ev.find("a[href]").first();
       let href = a.attr("href") || "";
       if (href && !/^https?:\/\//i.test(href)) {
         try { href = new URL(href, pageUrl).toString(); } catch {}
       }
-      const title = norm($ev.find(".event-title, .title, h3, h2").first().text() || a.text());
+      const title = norm($ev.find(".event-title, .title, h3, h2, .fc-event-title").first().text() || a.text());
       if (!href || !title) return;
 
       // Datetime via <time datetime="...">
-      const t = $ev.find("time[datetime]").attr("datetime") || $ev.attr("datetime");
+      const t = $ev.find("time[datetime]").attr("datetime") || $ev.attr("datetime") || a.find("time[datetime]").attr("datetime");
       let startISO = null;
       if (t) {
         const d = new Date(t);
@@ -128,7 +130,7 @@ function scrapeMonthPage($, pageUrl, fallbackMY) {
       // If we only have a textual time on the card, combine with day/month/year
       if (!startISO) {
         // Pull time text from common locations or from the full element text
-        let timeText = $ev.find("time").first().text() || $ev.find(".time, .event-time").first().text();
+        let timeText = $ev.find("time").first().text() || $ev.find(".time, .event-time, .fc-event-time").first().text() || a.find("time").first().text();
         if (!timeText) {
           const txt = norm($ev.text());
           const mt = txt.match(/\b(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\b/i);
@@ -151,22 +153,25 @@ function scrapeMonthPage($, pageUrl, fallbackMY) {
     });
   });
 
+  console.log(`[Beechman] scrapeMonthPage: dayCells=${dayCells}, items=${out.length}, url=${pageUrl}`);
+
   // If the above found nothing, try a flat list approach as a fallback
   if (out.length === 0) {
-    $("article, li, .event, .event-card").each((_, el) => {
+    $("article, li, .event, .event-card, .fc-event").each((_, el) => {
       const $el = $(el);
-      const a = $el.find("a[href]").first();
+      const a = $el.is("a") ? $el : $el.find("a[href]").first();
       let href = a.attr("href") || "";
       if (href && !/^https?:\/\//i.test(href)) {
         try { href = new URL(href, pageUrl).toString(); } catch {}
       }
-      const title = norm($el.find(".event-title, .title, h3, h2").first().text() || a.text());
+      const title = norm($el.find(".event-title, .title, h3, h2, .fc-event-title").first().text() || a.text());
       const dt = $el.find("time[datetime]").attr("datetime");
       if (!href || !title || !dt) return;
       const d = new Date(dt);
       if (isNaN(d.getTime())) return;
       out.push({ title, href, startISO: d.toISOString() });
     });
+    console.log(`[Beechman] fallback flat list: items=${out.length}, url=${pageUrl}`);
   }
 
   return out;
