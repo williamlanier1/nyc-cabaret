@@ -1,6 +1,5 @@
 import { supabaseAdmin } from "./supabase.mjs";
 import { fetch54BelowMonths } from "./connectors/54below.mjs";
-import { fetchBeechmanMonths } from "./connectors/beechman.mjs";
 
 /* ----------------------- helpers ----------------------- */
 
@@ -65,16 +64,7 @@ async function run() {
 
   console.log(`Imported 54 Below: ${clean54.length} events`);
 
-  // The Beechman — monthly calendar with detail pages holding artist
-  try {
-    const eventsBeech = await fetchBeechmanMonths("https://www.thebeechman.com/calendar", 3);
-    const cleanBeech = uniqByUid(dropUnwanted(eventsBeech));
-    // NOTE: Ensure the slug below matches your 'venues.slug' in Supabase
-    await upsert("the-beechman", cleanBeech);
-    console.log(`Imported The Beechman: ${cleanBeech.length} events`);
-  } catch (err) {
-    console.warn("Beechman import failed:", err?.message || err);
-  }
+  // Ingestion for additional venues can be added here as needed.
 }
 
 run()
