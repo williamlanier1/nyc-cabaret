@@ -131,3 +131,31 @@ body {
   color: #111827;
   border-color: #e5e7eb;
 }
+
+/* Media-query based dark mode for environments without a `.dark` class */
+@media (prefers-color-scheme: dark) {
+  .fc-theme-standard {
+    --fc-page-bg-color: #0a0a0a;
+    --fc-border-color: #262626;
+    --fc-neutral-text-color: #e5e7eb;
+    --fc-button-text-color: #e5e7eb;
+    --fc-button-bg-color: #1f2937;
+    --fc-button-border-color: #374151;
+    --fc-button-hover-bg-color: #374151;
+    --fc-button-active-bg-color: #4b5563;
+    --fc-list-event-hover-bg-color: #111827;
+  }
+  .fc .fc-toolbar-title { color: #ffffff; }
+  .fc .fc-list-day-cushion,
+  .fc .fc-list-day th,
+  .fc .fc-list-day-cushion { background: #18181b !important; color: #f4f4f5 !important; border-color: #262626 !important; }
+  .fc-theme-standard .fc-list-event td { background: #111827 !important; color: #e5e7eb !important; border-color: #262626 !important; }
+  .fc .fc-list-event-time,
+  .fc .fc-list-event-title,
+  .fc .fc-list-day-text,
+  .fc .fc-list-day-side-text { color: #e5e7eb !important; }
+  .fc a,
+  .fc .fc-list-event-title a { color: #c7d2fe !important; }
+  .fc .fc-list-event-dot { border-color: #93c5fd; background: #93c5fd; }
+  .fc .fc-list-event:hover td { background: #0f172a !important; }
+}

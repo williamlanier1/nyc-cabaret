@@ -175,6 +175,19 @@ async function run() {
   } catch (err) {
     console.warn("Beechman import failed:", err?.message || err);
   }
+
+  // Pangea — ICS feed via The Events Calendar
+  try {
+    const eventsPangea = await fetchIcsForVenue(
+      "pangea",
+      "https://www.pangeanyc.com/music/?ical=1"
+    );
+    const cleanPangea = uniqByUid(dropUnwanted(eventsPangea));
+    await upsert("pangea", cleanPangea);
+    console.log(`Imported Pangea: ${cleanPangea.length} events`);
+  } catch (err) {
+    console.warn("Pangea import failed:", err?.message || err);
+  }
 }
 
 run()

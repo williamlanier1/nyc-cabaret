@@ -73,6 +73,43 @@ function eventRow(venueSlug, rawTitle, startISO, url, sourceUrl) {
   };
 }
 
+async function fetchShowTitleFromShowClix(detailUrl) {
+  try {
+    const res = await fetch(detailUrl, { headers: { "user-agent": "nyc-cabaret-bot/1.0 (+contact)" }});
+    const html = await res.text();
+    // Try embedded EVENT JSON first
+    const m = html.match(/var\s+EVENT\s*=\s*(\{[\s\S]*?\});/);
+    if (m && m[1]) {
+      try {
+        const obj = JSON.parse(m[1]);
+        const desc = obj?.description || "";
+        if (desc) {
+          const $d = cheerio.load(desc);
+          const trySel = [
+            "em strong", "strong em", "em", "h2", ".subtitle", "p em strong", "p strong em"
+          ];
+          for (const sel of trySel) {
+            const t = norm($d(sel).first().text());
+            if (t && t.length >= 3) return t.replace(/[“”\"]/g, "").trim();
+          }
+        }
+      } catch {}
+    }
+    // Fallback: meta twitter:description may have ARTIST TITLE ...
+    const meta = html.match(/<meta[^>]+name=[\"']twitter:description[\"'][^>]+content=[\"']([^\"']+)[\"']/i);
+    if (meta && meta[1]) {
+      const text = norm(meta[1]);
+      // Heuristic: find a quoted phrase
+      const mq = text.match(/[“\"]([^\"“”]+)[”\"]/);
+      if (mq && mq[1]) return mq[1].trim();
+      // Or a segment after artist in ALL CAPS
+      const parts = text.split(/\b[A-Z][A-Z\s'&.-]+\b/).map(s => s.trim()).filter(Boolean);
+      if (parts.length > 0 && parts[0].length >= 3) return parts[0];
+    }
+  } catch {}
+  return null;
+}
+
 async function tryIcs(venueSlug, origin) {
   const candidates = [
     new URL("/?ical=1", origin).toString(),
@@ -137,6 +174,49 @@ export async function fetchBeechman(baseUrl = "https://www.thebeechman.com") {
   const venueSlug = "beechman";
   const origin = new URL(baseUrl).origin;
 
+  // 0) S3 JSON behind the calendar widget
+  try {
+    const out = [];
+    const s3Base = "https://lauriebeechmanevents.s3.amazonaws.com/events/";
+    const start = DateTime.now().setZone(TZ).startOf("month");
+    for (let i = 0; i < 6; i++) {
+      const dt = start.plus({ months: i });
+      const ym = `${dt.toFormat("yyyy")}-${dt.toFormat("MM")}`;
+      const url = `${s3Base}month/${ym}.json`;
+      try {
+        const res = await fetch(url, { headers: { "user-agent": "nyc-cabaret-bot/1.0 (+contact)" }});
+        if (!res.ok) continue;
+        const data = await res.json(); // object with day -> [ { event, hours, minutes } ]
+        for (const day of Object.keys(data)) {
+          const arr = data[day] || [];
+          for (const wrapper of arr) {
+            const ev = wrapper?.event || {};
+            const shows = Array.isArray(ev.shows) ? ev.shows : [];
+            const when = shows[0]?.date || ev.date || null; // ISO
+            const link = shows[0]?.listing_url || null;
+            const titleRaw = ev.name || "Untitled";
+            if (!when || isUnwanted(titleRaw)) continue;
+            let d = new Date(when);
+            if (isNaN(d.getTime())) continue;
+            const startISO = d.toISOString();
+            out.push(eventRow(venueSlug, titleRaw, startISO, link, url));
+          }
+        }
+      } catch {}
+    }
+    // Optional enrichment: if title seems to be just a name and we have a ticket URL, try to pull a show title from the detail page
+    for (let i = 0; i < out.length; i++) {
+      const ev = out[i];
+      const needEnrich = ev.url && (!ev.artist || ev.title === ev.artist);
+      if (!needEnrich) continue;
+      const showTitle = await fetchShowTitleFromShowClix(ev.url);
+      if (showTitle && showTitle.length >= 3) {
+        ev.title = smartTitleCase(showTitle);
+      }
+    }
+    if (out.length > 0) return out;
+  } catch {}
+
   // 1) ICS candidates
   const icsEvents = await tryIcs(venueSlug, origin);
   if (icsEvents.length > 0) return icsEvents;
@@ -158,4 +238,3 @@ export async function fetchBeechman(baseUrl = "https://www.thebeechman.com") {
 
   return [];
 }
-

@@ -8,7 +8,8 @@
     "cleanup:unwanted": "node scripts/cleanup_unwanted.mjs",
     "backfill:titlecase": "node scripts/backfill_titlecase.mjs",
     "backfill:dtm-quotes": "node scripts/backfill_dtm_quotes_split.mjs",
-    "backfill:artist-from-title": "node scripts/backfill_artist_from_title.mjs"
+    "backfill:artist-from-title": "node scripts/backfill_artist_from_title.mjs",
+    "backfill:beechman-titles": "node scripts/backfill_beechman_showtitles.mjs"
   },
   "engines": {
     "node": ">=18"
