@@ -132,6 +132,12 @@ body {
   border-color: #e5e7eb;
 }
 
+/* Hide the bullet/dot column in list view */
+.fc .fc-list-event-graphic,
+.fc .fc-list-event-dot {
+  display: none !important;
+}
+
 /* Media-query based dark mode for environments without a `.dark` class */
 @media (prefers-color-scheme: dark) {
   .fc-theme-standard {

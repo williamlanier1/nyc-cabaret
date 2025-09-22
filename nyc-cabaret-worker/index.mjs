@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./supabase.mjs";
 import { fetch54BelowMonths } from "./connectors/54below.mjs";
 import { fetchDontTellMamaMonths } from "./connectors/donttellmama.mjs";
+import { fetchJoesPubOfficial } from "./connectors/joespub_official.mjs";
 import { fetchJoesPubFromDoNYC } from "./connectors/joespub.mjs";
 import { fetchIcsForVenue } from "./connectors/ics.mjs";
 import { fetchBeechman } from "./connectors/beechman2.mjs";
@@ -145,9 +146,12 @@ async function run() {
     console.warn("Don't Tell Mama import failed:", err?.message || err);
   }
 
-  // Joe's Pub via DoNYC listing (Cloudflare blocks direct site scraping)
+  // Joe's Pub — prefer official site; fallback to DoNYC if official yields none
   try {
-    const eventsJP = await fetchJoesPubFromDoNYC("https://donyc.com/venues/joes-pub");
+    let eventsJP = await fetchJoesPubOfficial("https://publictheater.org/joes-pub");
+    if (!eventsJP || eventsJP.length === 0) {
+      eventsJP = await fetchJoesPubFromDoNYC("https://donyc.com/venues/joes-pub");
+    }
     const cleanJP = uniqByUid(dropUnwanted(eventsJP));
     await upsert("joes-pub", cleanJP);
     console.log(`Imported Joe's Pub: ${cleanJP.length} events`);
@@ -176,18 +180,6 @@ async function run() {
     console.warn("Beechman import failed:", err?.message || err);
   }
 
-  // Pangea — ICS feed via The Events Calendar
-  try {
-    const eventsPangea = await fetchIcsForVenue(
-      "pangea",
-      "https://www.pangeanyc.com/music/?ical=1"
-    );
-    const cleanPangea = uniqByUid(dropUnwanted(eventsPangea));
-    await upsert("pangea", cleanPangea);
-    console.log(`Imported Pangea: ${cleanPangea.length} events`);
-  } catch (err) {
-    console.warn("Pangea import failed:", err?.message || err);
-  }
 }
 
 run()

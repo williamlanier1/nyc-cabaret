@@ -24,17 +24,16 @@ async function fetchShowTitleFromShowClix(detailUrl) {
         const obj = JSON.parse(m[1]);
         const desc = obj?.description || "";
         if (desc) {
-          // quick parse as text
-          const cleaned = desc.replace(/<[^>]+>/g, " ").replace(/&quot;/g, '"');
-          // Look for italic/strong phrases that often hold show title
-          const m1 = cleaned.match(/"([^"]{3,})"/);
-          if (m1 && m1[1]) return norm(m1[1]);
-          // Or a line with ALL CAPS artist followed by a line with title case words
-          const lines = cleaned.split(/\n|\r/).map(norm).filter(Boolean);
-          for (const ln of lines) {
-            if (/[A-Z]/.test(ln) && !/[a-z]/.test(ln)) continue; // skip all-caps artist
-            if (ln.length >= 3) return ln;
-          }
+          // Prefer first <strong>…</strong> in description
+          const mStrong = desc.match(/<strong[^>]*>([^<]{3,})<\/strong>/i);
+          if (mStrong && mStrong[1]) return norm(mStrong[1].replace(/&quot;/g, '"'));
+          // Quoted phrase
+          const mQuote = desc.replace(/<[^>]+>/g, " ").match(/"([^"]{3,})"/);
+          if (mQuote && mQuote[1]) return norm(mQuote[1]);
+          // First non-empty line of plain text
+          const cleaned = desc.replace(/<br\s*\/?>(?=.)/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&quot;/g, '"');
+          const ln = cleaned.split(/\n|\r/).map(norm).find((x) => x && x.length >= 3);
+          if (ln) return ln;
         }
       } catch {}
     }
@@ -49,17 +48,16 @@ async function fetchShowTitleFromShowClix(detailUrl) {
   return null;
 }
 
-function looksLikeSoloName(title, artist) {
+function shouldEnrichTitle(title, artist) {
   const t = norm(title);
   const a = norm(artist || "");
   if (!t) return false;
-  if (a && t.toLowerCase() !== a.toLowerCase()) return false;
-  if (/[:"\d]/.test(t)) return false;
-  const bad = /( at | with | presents | show\b| band\b| trio\b| quartet\b| orchestra\b| comedy\b| cabaret\b)/i;
-  if (bad.test(t)) return false;
-  const words = t.split(/\s+/).filter(Boolean);
-  if (words.length === 0 || words.length > 4) return false;
-  return words.every((w) => /^[A-Za-z][A-Za-z'.-]*$/.test(w));
+  // Solo-name style
+  if (a && t.toLowerCase() === a.toLowerCase()) return true;
+  // Marketing or overly long
+  if (t.length > 90) return true;
+  if (/(brings|presents|debut|theatre|laurie beechman)/i.test(t)) return true;
+  return false;
 }
 
 async function run() {
@@ -74,7 +72,7 @@ async function run() {
 
   let updated = 0;
   for (const r of data || []) {
-    if (!looksLikeSoloName(r.title, r.artist)) continue;
+    if (!shouldEnrichTitle(r.title, r.artist)) continue;
     if (!r.url) continue;
     const show = await fetchShowTitleFromShowClix(r.url);
     if (show && show.length >= 3) {
@@ -96,4 +94,3 @@ run().catch((e) => {
   console.error("Backfill Beechman titles error:", e?.message || e);
   process.exit(1);
 });
-

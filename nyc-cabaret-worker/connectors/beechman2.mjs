@@ -79,19 +79,46 @@ async function fetchShowTitleFromShowClix(detailUrl) {
     const html = await res.text();
     // Try embedded EVENT JSON first
     const m = html.match(/var\s+EVENT\s*=\s*(\{[\s\S]*?\});/);
+    const cleanup = (t) => {
+      let s = norm((t || "").replace(/[“”"]/g, "").trim());
+      // Drop trailing pipes, parentheses content, and venue marketing tails
+      s = s.replace(/\s*\|\s*.*$/, "");
+      s = s.replace(/\s*\([^)]*\)\s*$/g, "");
+      s = s.replace(/\s+(?:to|at)\s+the\b.*$/i, "");
+      // If title has a long dash with blurb, keep the left segment
+      s = s.replace(/\s+[–—-]\s+.*$/, "");
+      // Trim if overly long: prefer first sentence or 100 chars
+      if (s.length > 120) {
+        const p = s.indexOf(".");
+        if (p > 20) s = s.slice(0, p);
+      }
+      if (s.length > 100) s = s.slice(0, 100);
+      return s.trim();
+    };
     if (m && m[1]) {
       try {
         const obj = JSON.parse(m[1]);
         const desc = obj?.description || "";
         if (desc) {
           const $d = cheerio.load(desc);
+          // Prefer first strong text inside listing_desc, else any strong, else first text line
           const trySel = [
-            "em strong", "strong em", "em", "h2", ".subtitle", "p em strong", "p strong em"
+            ".listing_desc strong",
+            "strong",
+            "em strong",
+            "strong em",
+            "h2",
+            ".subtitle",
           ];
           for (const sel of trySel) {
             const t = norm($d(sel).first().text());
-            if (t && t.length >= 3) return t.replace(/[“”\"]/g, "").trim();
+            if (t && t.length >= 3) return cleanup(t);
           }
+          // As a last resort, take first non-empty line of text from listing_desc
+          const htmlDesc = $d(".listing_desc").first().html() || $d.root().html() || "";
+          const plain = norm((htmlDesc || "").replace(/<br\s*\/?>(?=.)/gi, "\n").replace(/<[^>]+>/g, " "));
+          const firstLine = plain.split(/\n|\r/).map(norm).find((ln) => ln && ln.length >= 3);
+          if (firstLine) return cleanup(firstLine);
         }
       } catch {}
     }
@@ -101,10 +128,10 @@ async function fetchShowTitleFromShowClix(detailUrl) {
       const text = norm(meta[1]);
       // Heuristic: find a quoted phrase
       const mq = text.match(/[“\"]([^\"“”]+)[”\"]/);
-      if (mq && mq[1]) return mq[1].trim();
+      if (mq && mq[1]) return cleanup(mq[1]);
       // Or a segment after artist in ALL CAPS
       const parts = text.split(/\b[A-Z][A-Z\s'&.-]+\b/).map(s => s.trim()).filter(Boolean);
-      if (parts.length > 0 && parts[0].length >= 3) return parts[0];
+      if (parts.length > 0 && parts[0].length >= 3) return cleanup(parts[0]);
     }
   } catch {}
   return null;

@@ -69,6 +69,7 @@ export default function Home() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVenue, setSelectedVenue] = useState<string>("all");
+  const [dateQuick, setDateQuick] = useState<"all" | "today" | "tomorrow" | "week" | "weekend">("all");
 
   useEffect(() => {
     let mounted = true;
@@ -121,7 +122,7 @@ export default function Home() {
           )}
 
           {props.artist ? (
-            <div className="mt-1 font-semibold text-gray-800 dark:text-neutral-100">
+            <div className="mt-1 font-semibold italic text-gray-800 dark:text-neutral-100">
               {props.artist}
             </div>
           ) : null}
@@ -154,9 +155,9 @@ export default function Home() {
     <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white">
       <main className="mx-auto max-w-5xl p-6">
         <header className="mb-6">
-          <h1 className="text-2xl font-bold">NYC Cabaret — Upcoming</h1>
+          <h1 className="text-2xl font-bold">The NYC Cabaret Calendar</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-neutral-300">
-            Unified list across venues. Click a title to open tickets/details.
+            Every show. Every night. All in one place.
           </p>
         </header>
 
@@ -189,18 +190,99 @@ export default function Home() {
                     ))}
                 </select>
               </label>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-gray-700 dark:text-neutral-300">Date:</span>
+                {(
+                  [
+                    { k: "all", label: "All" },
+                    { k: "today", label: "Today" },
+                    { k: "tomorrow", label: "Tomorrow" },
+                    { k: "week", label: "This Week" },
+                    { k: "weekend", label: "Weekend" },
+                  ] as const
+                ).map(({ k, label }) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setDateQuick(k)}
+                    className={[
+                      "rounded px-2 py-1 text-xs font-medium",
+                      dateQuick === k
+                        ? "bg-indigo-600 text-white"
+                        : "bg-gray-100 text-gray-800 dark:bg-neutral-800 dark:text-neutral-200",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <FullCalendar
               plugins={[listPlugin, dayGridPlugin, interactionPlugin]}
               initialView="listMonth"
-              headerToolbar={{ left: "prev,next today", center: "title", right: "listMonth" }}
+            headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
             events={events
               .filter((e) => selectedVenue === "all" || (e.venue?.slug ?? e.venue_slug) === selectedVenue)
+              .filter((e) => {
+                if (dateQuick === "all") return true;
+                // Helper: derive NY-date parts for an ISO string
+                const nyParts = (iso?: string) => {
+                  const d = iso ? new Date(iso) : new Date();
+                  const fmt = new Intl.DateTimeFormat("en-US", {
+                    timeZone: "America/New_York",
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    weekday: "short",
+                  } as const);
+                  const parts = fmt.formatToParts(d);
+                  const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
+                  const y = parseInt(get("year"), 10);
+                  const m = parseInt(get("month"), 10);
+                  const day = parseInt(get("day"), 10);
+                  const w = get("weekday");
+                  const wIndex = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(w);
+                  return { y, m, day, wIndex };
+                };
+                const today = nyParts();
+                const ev = nyParts(e.start_at ?? e.start_time ?? e.start);
+
+                const sameYMD = (a: any, b: any) => a.y === b.y && a.m === b.m && a.day === b.day;
+
+                if (dateQuick === "today") return sameYMD(ev, today);
+                if (dateQuick === "tomorrow") {
+                  // compute tomorrow in NY
+                  const tomorrowLocal = new Date();
+                  tomorrowLocal.setDate(tomorrowLocal.getDate() + 1);
+                  const tom = nyParts(tomorrowLocal.toISOString());
+                  return sameYMD(ev, tom);
+                }
+                if (dateQuick === "week") {
+                  // Sunday (0) to Saturday (6)
+                  const startOffset = today.wIndex; // days since Sunday
+                  const endOffset = 6 - today.wIndex;
+                  const startDate = new Date();
+                  startDate.setDate(startDate.getDate() - startOffset);
+                  const endDate = new Date();
+                  endDate.setDate(endDate.getDate() + endOffset);
+                  const start = nyParts(startDate.toISOString());
+                  const end = nyParts(endDate.toISOString());
+                  // compare NY date in range [start, end]
+                  const asNum = (p: any) => p.y * 10000 + p.m * 100 + p.day;
+                  const v = asNum(ev);
+                  return v >= asNum(start) && v <= asNum(end);
+                }
+                if (dateQuick === "weekend") {
+                  return ev.wIndex === 5 || ev.wIndex === 6 || ev.wIndex === 0; // Fri, Sat, Sun
+                }
+                return true;
+              })
               .map((e) => {
-              const link = normalizeUrl(e.url);
-              const niceTitle = smartTitleCase(e.title) ?? e.title;
-              return {
+                const link = normalizeUrl(e.url);
+                const niceTitle = smartTitleCase(e.title) ?? e.title;
+                return {
                 id: e.id,
                 // Keep title as the event title only; render artist separately below.
                 title: niceTitle,
