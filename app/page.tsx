@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import listPlugin from "@fullcalendar/list";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import type { EventContentArg } from "@fullcalendar/core";
+import type { EventContentArg, DatesSetArg } from "@fullcalendar/core";
 
 type EventRow = {
   id: string;
@@ -70,6 +70,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [selectedVenue, setSelectedVenue] = useState<string>("all");
   const [dateQuick, setDateQuick] = useState<"all" | "today" | "tomorrow" | "week" | "weekend">("all");
+  const [calendarTitle, setCalendarTitle] = useState("");
+  const calendarRef = useRef<FullCalendar | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -166,6 +168,38 @@ export default function Home() {
         ) : (
           <>
             <div className="mb-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                onClick={() => calendarRef.current?.getApi()?.today()}
+              >
+                Today
+              </button>
+
+              <div className="flex flex-1 items-center justify-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+                <button
+                  type="button"
+                  aria-label="Previous period"
+                  className="rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  onClick={() => calendarRef.current?.getApi()?.prev()}
+                >
+                  {"‹"}
+                </button>
+                <span className="min-w-[160px] text-center text-xl font-semibold md:text-2xl">
+                  {calendarTitle}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next period"
+                  className="rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  onClick={() => calendarRef.current?.getApi()?.next()}
+                >
+                  {"›"}
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center gap-3">
               <label className="text-sm text-gray-700 dark:text-neutral-300">
                 Venue:
                 <select
@@ -220,10 +254,12 @@ export default function Home() {
             </div>
 
             <FullCalendar
+              ref={calendarRef}
               plugins={[listPlugin, dayGridPlugin, interactionPlugin]}
               initialView="listMonth"
-            headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
-            events={events
+              headerToolbar={false}
+              datesSet={(arg: DatesSetArg) => setCalendarTitle(arg.view?.title ?? "")}
+              events={events
               .filter((e) => selectedVenue === "all" || (e.venue?.slug ?? e.venue_slug) === selectedVenue)
               .filter((e) => {
                 if (dateQuick === "all") return true;
