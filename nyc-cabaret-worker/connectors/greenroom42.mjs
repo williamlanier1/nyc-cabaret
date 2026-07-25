@@ -57,17 +57,35 @@ function deriveTitleArtist(eyebrowRaw, titleRaw, subtitleRaw) {
   return { title: title0, artist };
 }
 
-export async function fetchGreenRoom42(maxShowMoreClicks = 8) {
+export async function fetchGreenRoom42(maxShowMoreClicks = 4) {
   const venueSlug = "green-room-42";
   const out = [];
+  // This runs on a memory-capped host (Render's cron plan caps the whole
+  // process at 512Mi, shared with everything else index.mjs already loaded
+  // for the other venues), and a default Chromium launch comfortably blows
+  // past that on its own. These flags are the standard set for running
+  // headless Chromium inside small/containerized memory limits: skip the
+  // separate sandbox process, don't use /dev/shm (tiny by default in most
+  // containers and a common OOM trigger), skip GPU compositing, and run as
+  // a single process instead of Chromium's normal multi-process model.
   const browser = await chromium.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--single-process",
+      "--no-zygote",
+    ],
   });
 
   try {
+    // A small viewport keeps layout/paint work (and memory) down; this page
+    // is just being read for text, not visually inspected.
     const page = await browser.newPage({
       userAgent: "nyc-cabaret-bot/1.0 (+contact)",
+      viewport: { width: 800, height: 900 },
     });
     await page.goto(EVENTS_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForSelector(CARD_SEL, { timeout: 20000 });

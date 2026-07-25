@@ -216,6 +216,25 @@ async function upsert(venueSlug, events) {
 /* ----------------------- main -------------------------- */
 
 async function run() {
+  // Green Room 42 (slug: green-room-42): the venue's calendar is a Vue app
+  // backed by Firestore with no fetchable JSON/ICS feed, so this one loads
+  // the public page in a headless browser and reads the rendered event
+  // cards instead (see connectors/greenroom42.mjs). Runs first, before any
+  // other venue, deliberately: this cron job's memory is capped, launching
+  // Chromium is by far the heaviest thing it does, and running it first
+  // means it isn't competing with everything the other six connectors have
+  // already loaded into memory by the time it starts. Isolated in its own
+  // try/catch like the rest either way — a failure here never blocks other
+  // venues.
+  try {
+    const eventsGR42 = await fetchGreenRoom42();
+    const cleanGR42 = uniqByUid(dropUnwanted(eventsGR42));
+    await upsert("green-room-42", cleanGR42);
+    console.log(`Imported Green Room 42: ${cleanGR42.length} events`);
+  } catch (err) {
+    console.warn("Green Room 42 import failed:", err?.message || err);
+  }
+
   // 54 Below — crawl 6 months forward using the month=October+2025 style URLs
   try {
     const events54 = await fetch54BelowMonths("https://54below.org/calendar/", 6);
@@ -284,21 +303,6 @@ async function run() {
     console.log(`Imported Pangea: ${cleanPangea.length} events`);
   } catch (err) {
     console.warn("Pangea import failed:", err?.message || err);
-  }
-
-  // Green Room 42 (slug: green-room-42): the venue's calendar is a Vue app
-  // backed by Firestore with no fetchable JSON/ICS feed, so this one loads
-  // the public page in a headless browser and reads the rendered event
-  // cards instead (see connectors/greenroom42.mjs). Heavier than the other
-  // connectors — it launches a real browser — so it's isolated in its own
-  // try/catch like the rest: a failure here never blocks other venues.
-  try {
-    const eventsGR42 = await fetchGreenRoom42();
-    const cleanGR42 = uniqByUid(dropUnwanted(eventsGR42));
-    await upsert("green-room-42", cleanGR42);
-    console.log(`Imported Green Room 42: ${cleanGR42.length} events`);
-  } catch (err) {
-    console.warn("Green Room 42 import failed:", err?.message || err);
   }
 
 }
