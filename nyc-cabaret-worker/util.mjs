@@ -60,7 +60,8 @@ function isLikelySoloName(title) {
   if (!t) return false;
   if (/\d/.test(t)) return false; // no digits
   if (/[":]/.test(t)) return false; // skip if quotes/colon present
-  const bad = /( at | with | presents | show\b| band\b| trio\b| quartet\b| orchestra\b| comedy\b| cabaret\b)/i;
+  if (/^(a|an|the)\s/i.test(t)) return false; // real names essentially never start with an article
+  const bad = /( at | with | presents | show\b| band\b| trio\b| quartet\b| orchestra\b| comedy\b| cabaret\b|\brecital\b|\bconcert\b|\blaunch\b|\bparty\b|\breading\b|\bworkshop\b|\brevue\b|\bcelebration\b|\btribute\b|\bbenefit\b|\bbrunch\b)/i;
   if (bad.test(t)) return false;
   const words = t.split(/\s+/).filter(Boolean);
   if (words.length === 0 || words.length > 4) return false;

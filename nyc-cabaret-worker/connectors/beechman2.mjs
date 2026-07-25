@@ -204,7 +204,11 @@ export async function fetchBeechman(baseUrl = "https://www.thebeechman.com") {
   // 0) S3 JSON behind the calendar widget
   try {
     const out = [];
-    const s3Base = "https://lauriebeechmanevents.s3.amazonaws.com/events/";
+    // The venue migrated their booking system to a "v3" bucket at some point;
+    // the old bucket now 404s, which is why this connector was silently
+    // returning zero events. Confirmed the new bucket via the live site's
+    // network requests — same JSON shape, just a renamed host.
+    const s3Base = "https://lauriebeechmaneventsv3.s3.amazonaws.com/events/";
     const start = DateTime.now().setZone(TZ).startOf("month");
     for (let i = 0; i < 6; i++) {
       const dt = start.plus({ months: i });

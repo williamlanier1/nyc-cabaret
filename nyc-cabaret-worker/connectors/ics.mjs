@@ -1,6 +1,24 @@
 import ical from "node-ical";
 import { DateTime, IANAZone } from "luxon";
-import { uidHash } from "../util.mjs";
+import { uidHash, smartTitleCase, ensureArtistFromTitle } from "../util.mjs";
+
+// Pangea's WordPress feed bakes the room name and a redundant time/cover-charge
+// string into SUMMARY, e.g. "Cabaret Room: DAN MANJOVI, 8:30pm-10:30pm, no cover"
+// — noisy since the time already shows in its own column, and the performer's
+// name never makes it into the artist field. Strip the room prefix and the
+// trailing time/cover string, then pull an artist name out when what's left
+// looks like one (reusing the same heuristic 54 Below's connector uses).
+function cleanPangeaTitle(raw) {
+  let t = (raw || "").trim();
+  t = t.replace(/^(cabaret room|front lounge)\s*:\s*/i, "");
+  t = t.replace(
+    /,\s*\d{1,2}(:\d{2})?\s*(am|pm)\s*(-\s*\d{1,2}(:\d{2})?\s*(am|pm))?\s*(,\s*no\s*cover)?\s*$/i,
+    ""
+  );
+  const title = smartTitleCase(t.trim());
+  const artist = ensureArtistFromTitle(title, null);
+  return { title, artist };
+}
 
 // Some feeds (e.g. Pangea's WordPress "Events Calendar" export) tag DTSTART/DTEND
 // with a TZID like "UTC+0" that isn't a real IANA timezone. node-ical can't resolve
@@ -37,7 +55,14 @@ export async function fetchIcsForVenue(venueSlug, icsUrl, opts = {}) {
     const v = data[key];
     if (v.type !== "VEVENT") continue;
 
-    let title = (v.summary || "Untitled").toString().trim();
+    const rawTitle = (v.summary || "Untitled").toString().trim();
+    let title = rawTitle;
+    let artist = null;
+    if (venueSlug === "pangea") {
+      const cleaned = cleanPangeaTitle(rawTitle);
+      title = cleaned.title;
+      artist = cleaned.artist;
+    }
     const startISO = toCorrectedISO(v.start, localZone);
     // Some feeds include an end time we do not want to display (e.g., Chelsea Table + Stage).
     // Suppress end_at for that venue so the calendar shows start only.
@@ -45,9 +70,12 @@ export async function fetchIcsForVenue(venueSlug, icsUrl, opts = {}) {
     const endISO = keepEnd && v.end ? toCorrectedISO(v.end, localZone) : null;
 
     out.push({
-      uid_hash: uidHash(venueSlug, title, startISO),
+      // Hash the raw feed text, not the cleaned display title, so identity stays
+      // stable even as the cleanup logic improves — otherwise every refinement
+      // here would orphan the previous run's rows as duplicates.
+      uid_hash: uidHash(venueSlug, rawTitle, startISO),
       title,
-      artist: null,
+      artist,
       venue_slug: venueSlug,
       start_at: startISO,
       end_at: endISO,

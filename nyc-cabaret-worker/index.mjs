@@ -86,33 +86,33 @@ async function upsert(venueSlug, events) {
   const nowISO = new Date().toISOString();
   const toInsert = [];
   const toUpdate = [];
+  const toRetitle = [];
 
   const normISO = (v) => {
     if (!v) return null;
     try { return new Date(v).toISOString(); } catch { return null; }
   };
 
+  // Rows/events that don't match any uid_hash on the other side. A venue that
+  // tweaks a listed title even slightly (fixes a typo, adds a featured
+  // performer) changes its uid_hash, since the hash is (venue, title, time).
+  // Left alone, that creates a brand-new row every time and the old one with
+  // the stale title sits there forever — this is why the site shows doubled
+  // listings. See the same-timestamp matching below for the fix.
+  const unmatchedExisting = [];
+  const matchedExistingIds = new Set();
+  const unmatchedEvents = [];
+
   for (const e of events) {
     const ex = byUid.get(e.uid_hash);
     if (!ex) {
-      toInsert.push({
-        uid_hash: e.uid_hash,
-        title: e.title,
-        artist: e.artist ?? null,
-        venue_id: venueId,
-        start_at: e.start_at,
-        end_at: e.end_at ?? null,
-        tz: "America/New_York",
-        url: e.url ?? null,
-        status: e.status || "confirmed",
-        source_type: e.source_type,
-        source_ref: e.source_ref ?? null,
-        last_modified_at: nowISO,
-      });
+      unmatchedEvents.push(e);
       continue;
     }
+    matchedExistingIds.add(ex.id);
 
-    // Only update if date/time changed. Do NOT touch title/artist (manual edits allowed).
+    // Only update start/end if changed. Do NOT touch title/artist here — this
+    // is the exact-hash-match path, so the title didn't change.
     const exStart = normISO(ex.start_at);
     const exEnd = normISO(ex.end_at);
     const newStart = normISO(e.start_at);
@@ -124,11 +124,70 @@ async function upsert(venueSlug, events) {
         id: ex.id,
         start_at: e.start_at,
         end_at: e.end_at ?? null,
-        // keep TZ consistent with worker policy
         tz: "America/New_York",
         last_modified_at: nowISO,
       });
     }
+  }
+  for (const row of existing || []) {
+    if (!matchedExistingIds.has(row.id)) unmatchedExisting.push(row);
+  }
+
+  // Pair up unmatched existing rows with unmatched incoming events by exact
+  // start_at, but only when the pairing is unambiguous — exactly one orphaned
+  // existing row and exactly one orphaned incoming event at that same instant.
+  // A venue with concurrent rooms (two real, different shows at the same
+  // moment) would show up as 2:2 or more here and correctly gets skipped —
+  // both just insert as distinct new rows instead of being merged.
+  const existingByStart = new Map();
+  for (const row of unmatchedExisting) {
+    const key = normISO(row.start_at);
+    if (!existingByStart.has(key)) existingByStart.set(key, []);
+    existingByStart.get(key).push(row);
+  }
+  const eventsByStart = new Map();
+  for (const e of unmatchedEvents) {
+    const key = normISO(e.start_at);
+    if (!eventsByStart.has(key)) eventsByStart.set(key, []);
+    eventsByStart.get(key).push(e);
+  }
+
+  const stillUnmatchedEvents = [];
+  for (const e of unmatchedEvents) {
+    const key = normISO(e.start_at);
+    const exRows = existingByStart.get(key);
+    const newRows = eventsByStart.get(key);
+    if (exRows && exRows.length === 1 && newRows && newRows.length === 1) {
+      toRetitle.push({
+        id: exRows[0].id,
+        uid_hash: e.uid_hash,
+        title: e.title,
+        artist: e.artist ?? null,
+        start_at: e.start_at,
+        end_at: e.end_at ?? null,
+        tz: "America/New_York",
+        last_modified_at: nowISO,
+      });
+    } else {
+      stillUnmatchedEvents.push(e);
+    }
+  }
+
+  for (const e of stillUnmatchedEvents) {
+    toInsert.push({
+      uid_hash: e.uid_hash,
+      title: e.title,
+      artist: e.artist ?? null,
+      venue_id: venueId,
+      start_at: e.start_at,
+      end_at: e.end_at ?? null,
+      tz: "America/New_York",
+      url: e.url ?? null,
+      status: e.status || "confirmed",
+      source_type: e.source_type,
+      source_ref: e.source_ref ?? null,
+      last_modified_at: nowISO,
+    });
   }
 
   if (toInsert.length > 0) {
@@ -138,6 +197,14 @@ async function upsert(venueSlug, events) {
 
   if (toUpdate.length > 0) {
     for (const u of toUpdate) {
+      const { id, ...patch } = u;
+      const { error } = await supabaseAdmin.from("events").update(patch).eq("id", id);
+      if (error) throw error;
+    }
+  }
+
+  if (toRetitle.length > 0) {
+    for (const u of toRetitle) {
       const { id, ...patch } = u;
       const { error } = await supabaseAdmin.from("events").update(patch).eq("id", id);
       if (error) throw error;
