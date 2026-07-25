@@ -50,15 +50,35 @@ async function getVenueId(slug) {
   return data.id;
 }
 
+// Supabase/PostgREST caps a single select at 1000 rows by default. Once a venue
+// crosses that many stored events, an unpaginated select silently truncates the
+// result, the worker stops seeing some already-imported rows, tries to insert
+// them again, and crashes on the uid_hash unique constraint. Page through all
+// rows explicitly so this can't happen regardless of table size.
+async function fetchAllExisting(venueId) {
+  const pageSize = 1000;
+  let from = 0;
+  const rows = [];
+  while (true) {
+    const { data, error } = await supabaseAdmin
+      .from("events")
+      .select("id, uid_hash, start_at, end_at")
+      .eq("venue_id", venueId)
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return rows;
+}
+
 async function upsert(venueSlug, events) {
   const venueId = await getVenueId(venueSlug);
 
-  // Fetch existing rows once for selective updates
-  const { data: existing, error: selErr } = await supabaseAdmin
-    .from("events")
-    .select("id, uid_hash, start_at, end_at")
-    .eq("venue_id", venueId);
-  if (selErr) throw selErr;
+  // Fetch existing rows once for selective updates (paginated — see fetchAllExisting)
+  const existing = await fetchAllExisting(venueId);
 
   const byUid = new Map();
   for (const row of existing || []) byUid.set(row.uid_hash, row);
@@ -129,11 +149,14 @@ async function upsert(venueSlug, events) {
 
 async function run() {
   // 54 Below — crawl 6 months forward using the month=October+2025 style URLs
-  const events54 = await fetch54BelowMonths("https://54below.org/calendar/", 6);
-  const clean54 = uniqByUid(dropUnwanted(events54));
-  await upsert("54-below", clean54);
-
-  console.log(`Imported 54 Below: ${clean54.length} events`);
+  try {
+    const events54 = await fetch54BelowMonths("https://54below.org/calendar/", 6);
+    const clean54 = uniqByUid(dropUnwanted(events54));
+    await upsert("54-below", clean54);
+    console.log(`Imported 54 Below: ${clean54.length} events`);
+  } catch (err) {
+    console.warn("54 Below import failed:", err?.message || err);
+  }
 
   // Ingestion for additional venues can be added here as needed.
   try {
@@ -178,6 +201,21 @@ async function run() {
     console.log(`Imported Beechman: ${cleanBeech.length} events`);
   } catch (err) {
     console.warn("Beechman import failed:", err?.message || err);
+  }
+
+  // Pangea — ICS feed via WordPress Events Calendar. The feed tags times with a
+  // bogus "UTC+0" TZID; fetchIcsForVenue corrects those back to America/New_York
+  // wall-clock time (see connectors/ics.mjs). Requires a "pangea" row in venues.
+  try {
+    const eventsPangea = await fetchIcsForVenue(
+      "pangea",
+      "https://www.pangeanyc.com/music/?ical=1"
+    );
+    const cleanPangea = uniqByUid(dropUnwanted(eventsPangea));
+    await upsert("pangea", cleanPangea);
+    console.log(`Imported Pangea: ${cleanPangea.length} events`);
+  } catch (err) {
+    console.warn("Pangea import failed:", err?.message || err);
   }
 
 }
