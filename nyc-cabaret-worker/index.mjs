@@ -5,6 +5,7 @@ import { fetchJoesPubOfficial } from "./connectors/joespub_official.mjs";
 import { fetchJoesPubFromDoNYC } from "./connectors/joespub.mjs";
 import { fetchIcsForVenue } from "./connectors/ics.mjs";
 import { fetchBeechman } from "./connectors/beechman2.mjs";
+import { fetchGreenRoom42 } from "./connectors/greenroom42.mjs";
 
 /* ----------------------- helpers ----------------------- */
 
@@ -283,6 +284,21 @@ async function run() {
     console.log(`Imported Pangea: ${cleanPangea.length} events`);
   } catch (err) {
     console.warn("Pangea import failed:", err?.message || err);
+  }
+
+  // Green Room 42 (slug: green-room-42): the venue's calendar is a Vue app
+  // backed by Firestore with no fetchable JSON/ICS feed, so this one loads
+  // the public page in a headless browser and reads the rendered event
+  // cards instead (see connectors/greenroom42.mjs). Heavier than the other
+  // connectors — it launches a real browser — so it's isolated in its own
+  // try/catch like the rest: a failure here never blocks other venues.
+  try {
+    const eventsGR42 = await fetchGreenRoom42();
+    const cleanGR42 = uniqByUid(dropUnwanted(eventsGR42));
+    await upsert("green-room-42", cleanGR42);
+    console.log(`Imported Green Room 42: ${cleanGR42.length} events`);
+  } catch (err) {
+    console.warn("Green Room 42 import failed:", err?.message || err);
   }
 
 }

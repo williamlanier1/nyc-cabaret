@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.mjs",
+    "postinstall": "playwright install --with-deps chromium",
     "backfill:54below": "node scripts/backfill_54below_title_artist.mjs",
     "cleanup:unwanted": "node scripts/cleanup_unwanted.mjs",
     "backfill:titlecase": "node scripts/backfill_titlecase.mjs",
@@ -18,6 +19,7 @@
     "@supabase/supabase-js": "^2.45.4",
     "cheerio": "^1.0.0",
     "luxon": "^3.5.0",
-    "node-ical": "^0.15.1"
+    "node-ical": "^0.15.1",
+    "playwright": "^1.47.0"
   }
 }
