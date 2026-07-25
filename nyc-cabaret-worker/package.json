@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.mjs",
-    "postinstall": "playwright install --with-deps chromium",
+    "postinstall": "playwright install chromium",
     "backfill:54below": "node scripts/backfill_54below_title_artist.mjs",
     "cleanup:unwanted": "node scripts/cleanup_unwanted.mjs",
     "backfill:titlecase": "node scripts/backfill_titlecase.mjs",
