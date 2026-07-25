@@ -215,8 +215,17 @@ export async function fetchBeechman(baseUrl = "https://www.thebeechman.com") {
       const ym = `${dt.toFormat("yyyy")}-${dt.toFormat("MM")}`;
       const url = `${s3Base}month/${ym}.json`;
       try {
-        const res = await fetch(url, { headers: { "user-agent": "nyc-cabaret-bot/1.0 (+contact)" }});
-        if (!res.ok) continue;
+        // Deliberately no custom headers here -- this is a public S3 object,
+        // and a prior run of this connector (with a "user-agent" header on
+        // this same fetch) silently returned zero events for every month
+        // despite the URL and JSON shape both being confirmed correct by
+        // hand. Logging the actual error on failure (instead of a bare
+        // `catch {}`) so a repeat of that doesn't go unexplained again.
+        const res = await fetch(url);
+        if (!res.ok) {
+          console.warn(`Beechman S3 fetch non-OK for ${ym}:`, res.status, res.statusText);
+          continue;
+        }
         const data = await res.json(); // object with day -> [ { event, hours, minutes } ]
         for (const day of Object.keys(data)) {
           const arr = data[day] || [];
@@ -233,7 +242,9 @@ export async function fetchBeechman(baseUrl = "https://www.thebeechman.com") {
             out.push(eventRow(venueSlug, titleRaw, startISO, link, url));
           }
         }
-      } catch {}
+      } catch (err) {
+        console.warn(`Beechman S3 fetch failed for ${ym} (${url}):`, err?.message || err);
+      }
     }
     // Optional enrichment: if title seems to be just a name and we have a ticket URL, try to pull a show title from the detail page
     for (let i = 0; i < out.length; i++) {
@@ -246,7 +257,9 @@ export async function fetchBeechman(baseUrl = "https://www.thebeechman.com") {
       }
     }
     if (out.length > 0) return out;
-  } catch {}
+  } catch (err) {
+    console.warn("Beechman S3 block failed entirely:", err?.message || err);
+  }
 
   // 1) ICS candidates
   const icsEvents = await tryIcs(venueSlug, origin);
@@ -264,7 +277,9 @@ export async function fetchBeechman(baseUrl = "https://www.thebeechman.com") {
       const $ = cheerio.load(html);
       const items = parseHtmlList($, url);
       if (items.length > 0) return items;
-    } catch {}
+    } catch (err) {
+      console.warn(`Beechman HTML fallback failed for ${url}:`, err?.message || err);
+    }
   }
 
   return [];
